@@ -83,7 +83,7 @@ int print_icon_data(struct TrayIcon *ti)
 #ifdef DEBUG
     XWindowAttributes xwa;
 #endif
-    LOG_INFO(("wid = 0x%x\n", ti->wid));
+    LOG_INFO(("wid = 0x%lx\n", ti->wid));
     LOG_TRACE(("  self = %p\n", ti));
     LOG_TRACE(("  prev = %p\n", ti->prev));
     LOG_TRACE(("  next = %p\n", ti->next));
@@ -104,18 +104,18 @@ int print_icon_data(struct TrayIcon *ti)
         LOG_TRACE(
             ("  xembed_accepts_focus = %d\n", ti->is_xembed_accepts_focus));
         LOG_TRACE(
-            ("  xembed_last_timestamp = %d\n", ti->xembed_last_timestamp));
-        LOG_TRACE(("  xembed_last_msgid = %d\n", ti->xembed_last_msgid));
+            ("  xembed_last_timestamp = %ld\n", ti->xembed_last_timestamp));
+        LOG_TRACE(("  xembed_last_msgid = %ld\n", ti->xembed_last_msgid));
     }
     LOG_INFO(("  embedded = %d\n", ti->is_embedded));
 #ifdef DEBUG
     if (ti->is_embedded) {
-        LOG_TRACE(("  mid-parent = 0x%x\n", ti->mid_parent));
+        LOG_TRACE(("  mid-parent = 0x%lx\n", ti->mid_parent));
         if (!XGetWindowAttributes(tray_data.dpy, ti->mid_parent, &xwa)) {
             LOG_TRACE((
                 "  ERR: XGetWindowAttributes() on mid-parent window faied\n"));
         } else {
-            LOG_TRACE(("  mid-parent wid = 0x%x\n", ti->mid_parent));
+            LOG_TRACE(("  mid-parent wid = 0x%lx\n", ti->mid_parent));
             LOG_TRACE(("  mid-parent state = %s\n",
                 xwa.map_state == IsUnmapped
                     ? "Unmapped"
@@ -136,7 +136,7 @@ int print_icon_data(struct TrayIcon *ti)
             LOG_TRACE(("  ERR: XQueryTree() failed\n"));
         } else {
             LOG_TRACE(
-                ("  parent wid from XQueryTree() = 0x%x\n", real_parent));
+                ("  parent wid from XQueryTree() = 0x%lx\n", real_parent));
         }
     }
     if (!XGetWindowAttributes(tray_data.dpy, ti->wid, &xwa)) {
