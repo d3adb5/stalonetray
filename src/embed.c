@@ -23,11 +23,9 @@
 #include "common.h"
 #include "debug.h"
 #include "icons.h"
-#include "kde_tray.h"
 #include "settings.h"
 #include "tray.h"
 
-#include "xembed.h"
 #include "xutils.h"
 
 #define CALC_INNER_POS(x_, y_, ti_) \
@@ -77,7 +75,7 @@ int embedder_embed(struct TrayIcon *ti)
     /* 1. Calculate position of mid-parent window */
     CALC_INNER_POS(x, y, ti);
     LOG_TRACE(
-        ("position of icon 0x%x inside the tray: (%d, %d)\n", ti->wid, x, y));
+        ("position of icon 0x%lx inside the tray: (%d, %d)\n", ti->wid, x, y));
     /* 2. Create mid-parent window */
     ti->mid_parent = XCreateSimpleWindow(tray_data.dpy, tray_data.tray,
         ti->l.icn_rect.x + x, ti->l.icn_rect.y + y, ti->l.wnd_sz.x,
@@ -92,7 +90,7 @@ int embedder_embed(struct TrayIcon *ti)
     XSetWindowBackgroundPixmap(tray_data.dpy, ti->mid_parent, 0);
 #endif
     if (!x11_ok() || ti->mid_parent == None) RETURN_STATUS(FAILURE);
-    LOG_TRACE(("created mid-parent window 0x%x\n", ti->mid_parent));
+    LOG_TRACE(("created mid-parent window 0x%lx\n", ti->mid_parent));
     /* 3. Embed window into mid-parent */
     switch (ti->cmode) {
     case CM_KDE:
@@ -141,13 +139,13 @@ int embedder_unembed(struct TrayIcon *ti)
                 ti->l.icn_rect.y);
             XMapRaised(tray_data.dpy, ti->wid);
             if (!x11_ok())
-                LOG_ERROR(("failed to move icon 0x%x out of the tray\n"));
+                LOG_ERROR(("failed to move icon 0x%lx out of the tray\n", ti->wid));
         }
         /* Destroy mid-parent */
         if (ti->mid_parent != None) {
             XDestroyWindow(tray_data.dpy, ti->mid_parent);
             if (!x11_ok())
-                LOG_ERROR(("failed to destroy icon mid-parent 0x%x\n",
+                LOG_ERROR(("failed to destroy icon mid-parent 0x%lx\n",
                     ti->mid_parent));
         }
         break;
@@ -157,7 +155,7 @@ int embedder_unembed(struct TrayIcon *ti)
             ti->cmode));
         return FAILURE;
     }
-    LOG_TRACE(("done unembedding 0x%x\n", ti->wid));
+    LOG_TRACE(("done unembedding 0x%lx\n", ti->wid));
     RETURN_STATUS(x11_ok()
         == 0); /* This resets error status for the generations to come (XXX) */
 }
@@ -221,7 +219,7 @@ static int embedder_update_window_position(struct TrayIcon *ti)
     if (!update_forced && !ti->is_updated && !ti->is_resized
         && ti->is_embedded)
         return NO_MATCH;
-    LOG_TRACE(("Updating position of icon 0x%x\n", ti->wid));
+    LOG_TRACE(("Updating position of icon 0x%lx\n", ti->wid));
     /* Recalculate icon position */
     CALC_INNER_POS(x, y, ti);
     /* Reset the flags */
@@ -235,7 +233,7 @@ static int embedder_update_window_position(struct TrayIcon *ti)
     /* Refresh the icon */
     embedder_refresh(ti);
     if (!x11_ok()) {
-        LOG_TRACE(("failed to update position of icon 0x%x\n", ti->wid));
+        LOG_TRACE(("failed to update position of icon 0x%lx\n", ti->wid));
         ti->is_invalid = True;
     }
     return NO_MATCH;
@@ -257,7 +255,7 @@ int embedder_refresh(struct TrayIcon *ti)
         tray_data.dpy, ti->wid, ti->l.wnd_sz.x, ti->l.wnd_sz.y, True);
     /* Check if the icon has survived all these manipulations */
     if (!x11_ok()) {
-        LOG_TRACE(("could not refresh 0x%x\n", ti->wid));
+        LOG_TRACE(("could not refresh 0x%lx\n", ti->wid));
         ti->is_invalid = True;
     }
     return NO_MATCH;

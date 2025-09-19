@@ -87,7 +87,7 @@ void kde_tray_init(Display *dpy)
     for (i = 0; i < n_old_kde_icons; i++)
         if (old_kde_icons[i] != None)
             LOG_TRACE(
-                ("0x%x is marked as an old KDE icon\n", old_kde_icons[i]));
+                ("0x%lx is marked as an old KDE icon\n", old_kde_icons[i]));
 #endif
 }
 
@@ -118,7 +118,7 @@ void kde_tray_old_icons_remove(Window w)
     int i;
     for (i = 0; i < n_old_kde_icons; i++)
         if (old_kde_icons[i] == w) {
-            LOG_TRACE(("0x%x unmarked as an old kde icon\n", w));
+            LOG_TRACE(("0x%lx unmarked as an old kde icon\n", w));
             old_kde_icons[i] = None;
         }
 }

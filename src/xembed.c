@@ -145,7 +145,7 @@ void xembed_init()
     XMapRaised(tray_data.dpy, tray_data.xembed_data.focus_proxy);
     if (!x11_ok()) DIE(("could not create focus proxy\n"));
     LOG_TRACE((
-        "created focus proxy, wid=0x%x\n", tray_data.xembed_data.focus_proxy));
+        "created focus proxy, wid=0x%lx\n", tray_data.xembed_data.focus_proxy));
 }
 
 void xembed_handle_event(XEvent ev)
@@ -153,7 +153,7 @@ void xembed_handle_event(XEvent ev)
     switch (ev.type) {
     case FocusOut:
         /* Broadcast that the focus has left tray window */
-        LOG_TRACE(("FocusOut 0x%x\n", ev.xfocus.window));
+        LOG_TRACE(("FocusOut 0x%lx\n", ev.xfocus.window));
         if (ev.xfocus.window == tray_data.xembed_data.focus_proxy)
             xembed_track_focus_change(False);
         break;
@@ -195,7 +195,7 @@ void xembed_handle_event(XEvent ev)
                 tray_data.xembed_data.current->is_invalid = True;
                 return;
             }
-            LOG_TRACE(("sent key event to 0x%x\n",
+            LOG_TRACE(("sent key event to 0x%lx\n",
                 tray_data.xembed_data.current->wid));
         }
         break;
@@ -284,7 +284,7 @@ void xembed_switch_focus_to(struct TrayIcon *tgt, long focus)
 {
     /* 1. Send "focus out" message to the currently focused icon */
     if (tray_data.xembed_data.current != NULL) {
-        LOG_TRACE(("XEMBED focus was removed from icon 0x%x (pointer %p)\n",
+        LOG_TRACE(("XEMBED focus was removed from icon 0x%lx (pointer %p)\n",
             tray_data.xembed_data.current->wid,
             tray_data.xembed_data.current));
         xembed_send_focus_out(tray_data.dpy,
@@ -295,7 +295,7 @@ void xembed_switch_focus_to(struct TrayIcon *tgt, long focus)
     if (tgt != NULL) {
         xembed_send_focus_in(
             tray_data.dpy, tgt->wid, focus, tray_data.xembed_data.timestamp);
-        LOG_TRACE(("XEMBED focus was set to icon 0x%x (pointer %p)\n",
+        LOG_TRACE(("XEMBED focus was set to icon 0x%lx (pointer %p)\n",
             tgt->wid, tgt));
     } else {
         LOG_TRACE(("XEMBED focus was unset\n"));
@@ -328,13 +328,13 @@ void xembed_track_focus_change(int in)
 void xembed_message(XClientMessageEvent ev)
 {
     long msgid;
-    LOG_TRACE(("this is an _XEMBED message, window: 0x%x, timestamp: %u, "
-               "opcode: %u, \ndetail: 0x%x, data1 = 0x%x, data2 = 0x%x\n",
+    LOG_TRACE(("this is an _XEMBED message, window: 0x%lx, timestamp: %lu, "
+               "opcode: %lu, \ndetail: 0x%lx, data1 = 0x%lx, data2 = 0x%lx\n",
         ev.window, ev.data.l[0], ev.data.l[1], ev.data.l[2], ev.data.l[3],
         ev.data.l[4]));
 #if DEBUG
     if (tray_data.xembed_data.current != NULL)
-        LOG_TRACE(("XEMBED focus is in window 0x%x (pointer %p)\n",
+        LOG_TRACE(("XEMBED focus is in window 0x%lx (pointer %p)\n",
             tray_data.xembed_data.current->wid,
             tray_data.xembed_data.current));
     else
@@ -349,7 +349,7 @@ void xembed_message(XClientMessageEvent ev)
         ev.data.l[0] = x11_get_server_timestamp(tray_data.dpy, tray_data.tray);
     tray_data.xembed_data.timestamp = ev.data.l[0];
     msgid = ev.data.l[1];
-    LOG_TRACE(("_XEMBED message %u\n", msgid));
+    LOG_TRACE(("_XEMBED message %lu\n", msgid));
     switch (msgid) {
     case XEMBED_REQUEST_FOCUS: xembed_request_focus_from_wm(); break;
     case XEMBED_FOCUS_NEXT:
@@ -388,7 +388,7 @@ void xembed_message(XClientMessageEvent ev)
         break;
     case XEMBED_UNREGISTER_ACCELERATOR: xembed_del_accel(ev.data.l[2]); break;
     default:
-        LOG_TRACE(("Unhandled _XEMBED message, id = %d\n", ev.data.l[1]));
+        LOG_TRACE(("Unhandled _XEMBED message, id = %ld\n", ev.data.l[1]));
         break;
     }
 }
@@ -413,7 +413,7 @@ void xembed_add_accel(long id, long symb, long mods)
             tmp->overloaded++;
         }
     LIST_ADD_ITEM(tray_data.xembed_data.accels, xaccel);
-    LOG_TRACE(("added new XEMBED accelerator: id=0x%x, sym=0x%x, mods=0x%x, "
+    LOG_TRACE(("added new XEMBED accelerator: id=0x%lx, sym=0x%lx, mods=0x%lx, "
                "overloaded=%d\n",
         id, symb, mods, xaccel->overloaded));
 }
@@ -435,7 +435,7 @@ void xembed_del_accel(long id)
         if (tmp->symb == tgt->symb && tmp->mods == tgt->mods)
             tmp->overloaded--;
     LIST_DEL_ITEM(tray_data.xembed_data.accels, tgt);
-    LOG_TRACE(("removed XEMBED accelator id=0x%x", tgt->id));
+    LOG_TRACE(("removed XEMBED accelator id=0x%lx", tgt->id));
     free(tgt);
 }
 
@@ -452,7 +452,7 @@ int xembed_act_accel_helper(struct TrayIcon *ti)
 void xembed_act_accel(struct XEMBEDAccel *accel)
 {
     LOG_TRACE(
-        ("activating XEMBED accelerator: id=0x%x (symb=0x%x, mods=0x%x)\n",
+        ("activating XEMBED accelerator: id=0x%lx (symb=0x%lx, mods=0x%lx)\n",
             accel->id, accel->symb, accel->mods));
     cur_accel = accel;
     icon_list_forall(&xembed_act_accel_helper);
@@ -466,7 +466,7 @@ int xembed_process_kbd_event(XKeyEvent xkey)
     static char buf[20];
     XLookupString(&xkey, buf, 20, &keysym, NULL);
     LOG_TRACE(
-        ("Key event (type=%d) with keycode=0x%x, symb=0x%x, state=0x%x\n",
+        ("Key event (type=%d) with keycode=0x%x, symb=0x%lx, state=0x%x\n",
             xkey.type, xkey.keycode, keysym, xkey.state));
     for (tmp = tray_data.xembed_data.accels; tmp != NULL; tmp = tmp->next)
         if (tmp->symb == keysym && tmp->mods == xkey.state) {
