@@ -235,7 +235,7 @@ void scrollbars_handle_event(XEvent ev)
     switch (ev.type) {
     case EnterNotify:
     case LeaveNotify:
-        LOG_TRACE(("EnterNotify, wid=0x%x x=%d y=%d\n",
+        LOG_TRACE(("%s, wid=0x%lx x=%d y=%d\n",
             ev.type == EnterNotify ? "EnterNotify" : "LeaveNotify",
             ev.xcrossing.window, ev.xcrossing.x, ev.xcrossing.y));
         if (settings.scrollbars_highlight_color_str != NULL

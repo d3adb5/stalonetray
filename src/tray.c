@@ -29,7 +29,6 @@
 #include "xutils.h"
 
 #ifndef NO_NATIVE_KDE
-#include "kde_tray.h"
 #endif
 
 #include "debug.h"
@@ -389,7 +388,7 @@ int tray_update_window_strut()
             {
                 int i;
                 for (i = 0; i < _NET_WM_STRUT_PARTIAL_SZ; i++)
-                    LOG_TRACE(("computed hints [%d] = %d\n", i, wm_strut[i]));
+                    LOG_TRACE(("computed hints [%d] = %lu\n", i, wm_strut[i]));
             }
             ewmh_set_window_strut(tray_data.dpy, tray_data.tray, wm_strut);
         }
@@ -528,12 +527,12 @@ void tray_create_window(int argc, char **argv)
         DefaultRootWindow(tray_data.dpy), tray_data.xsh.x, tray_data.xsh.y,
         tray_data.xsh.width, tray_data.xsh.height, 0, settings.bg_color.pixel,
         settings.bg_color.pixel);
-    LOG_TRACE(("created tray window: 0x%x\n", tray_data.tray));
+    LOG_TRACE(("created tray window: 0x%lx\n", tray_data.tray));
     if (settings.dockapp_mode == DOCKAPP_WMAKER) {
         tray_data.hint_win = XCreateSimpleWindow(tray_data.dpy,
             DefaultRootWindow(tray_data.dpy), 0, 0, 1, 1, 0,
             settings.bg_color.pixel, settings.bg_color.pixel);
-        LOG_TRACE(("created hint_win window: 0x%x\n", tray_data.hint_win));
+        LOG_TRACE(("created hint_win window: 0x%lx\n", tray_data.hint_win));
     }
     /* Set tray window properties */
     xswa.bit_gravity = settings.bit_gravity;
@@ -683,7 +682,7 @@ void tray_acquire_selection()
     /* Save old selection owner */
     tray_data.old_selection_owner =
         XGetSelectionOwner(tray_data.dpy, tray_data.xa_tray_selection);
-    LOG_TRACE(("old selection owner: 0x%x\n", tray_data.old_selection_owner));
+    LOG_TRACE(("old selection owner: 0x%lx\n", tray_data.old_selection_owner));
     /* Acquire selection */
     XSetSelectionOwner(
         tray_data.dpy, tray_data.xa_tray_selection, tray_data.tray, timestamp);

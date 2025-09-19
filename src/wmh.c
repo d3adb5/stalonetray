@@ -40,13 +40,13 @@ int ewmh_wm_present(Display *dpy)
         XInternAtom(dpy, _NET_SUPPORTING_WM_CHECK, False),
         (unsigned char **)&check_win, &cw_len);
     if (x11_ok() && rc && cw_len == 1) {
-        LOG_TRACE(("_NET_SUPPORTING_WM_CHECK (root) = 0x%x\n", check_win[0]));
+        LOG_TRACE(("_NET_SUPPORTING_WM_CHECK (root) = 0x%lx\n", check_win[0]));
         x11_get_window_prop32(dpy, check_win[0],
             XInternAtom(dpy, _NET_SUPPORTING_WM_CHECK, False), XA_WINDOW,
             (unsigned char **)&check_win_self_ref, &cwsr_len);
         rc = (x11_ok() && rc && cwsr_len == 1
             && check_win[0] == check_win_self_ref[0]);
-        LOG_TRACE(("_NET_SUPPORTING_WM_CHECK (self reference) = 0x%x\n",
+        LOG_TRACE(("_NET_SUPPORTING_WM_CHECK (self reference) = 0x%lx\n",
             check_win[0]));
     }
     if (cw_len != 0) XFree(check_win);
@@ -64,7 +64,7 @@ int ewmh_add_window_state(Display *dpy, Window wnd, char *state)
     int rc;
     prop = XInternAtom(dpy, "_NET_WM_STATE", False);
     atom = XInternAtom(dpy, state, False);
-    LOG_TRACE(("adding state %s to window 0x%x\n", state, atom));
+    LOG_TRACE(("adding state %s to window 0x%lx\n", state, atom));
     /* Ping the window and get its state */
     rc = XGetWindowAttributes(dpy, wnd, &xwa);
     if (!x11_ok() || !rc) return FAILURE;
@@ -90,7 +90,7 @@ int ewmh_add_window_type(Display *dpy, Window wnd, char *type)
     Atom atom;
     prop = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
     atom = XInternAtom(dpy, type, False);
-    LOG_TRACE(("adding type %s to window 0x%x\n", type, atom));
+    LOG_TRACE(("adding type %s to window 0x%lx\n", type, atom));
     /* Update property value (append) */
     XChangeProperty(dpy, wnd, prop, XA_ATOM, 32, PropModeAppend,
         (unsigned char *)&atom, 1);
@@ -119,7 +119,7 @@ int ewmh_set_window_atom32(
     XWindowAttributes xwa;
     int rc;
     prop = XInternAtom(dpy, prop_name, False);
-    LOG_TRACE(("0x%x: setting atom %s to 0x%x\n", wnd, prop_name, value));
+    LOG_TRACE(("0x%lx: setting atom %s to 0x%x\n", wnd, prop_name, value));
     /* Ping the window and get its state */
     rc = XGetWindowAttributes(dpy, wnd, &xwa);
     if (!x11_ok() || !rc) return FAILURE;
@@ -192,10 +192,10 @@ int ewmh_list_supported_atoms(Display *dpy)
                 for (i = 0; i < atom_list_len; i++) {
                     atom_name = XGetAtomName(dpy, atom_list[i]);
                     if (atom_name != NULL) {
-                        LOG_TRACE(("_NET_SUPPORTED[%d]: %s (0x%x)\n", i,
+                        LOG_TRACE(("_NET_SUPPORTED[%ld]: %s (0x%lx)\n", i,
                             atom_name, atom_list[i]));
                     } else
-                        LOG_TRACE(("_NET_SUPPORTED[%d]: bogus value (0x%x)\n",
+                        LOG_TRACE(("_NET_SUPPORTED[%ld]: bogus value (0x%lx)\n",
                             i, atom_list[i]));
                     XFree(atom_name);
                     x11_ok();
@@ -223,7 +223,7 @@ int ewmh_dump_window_states(Display *dpy, Window wnd)
         for (j = 0; j < prop_len; j++) {
             tmp = XGetAtomName(tray_data.dpy, data[j]);
             if (x11_ok() && tmp != NULL) {
-                LOG_TRACE(("0x%x:_NET_WM_STATE[%d] = %s\n", wnd, j, tmp));
+                LOG_TRACE(("0x%lx:_NET_WM_STATE[%d] = %s\n", wnd, j, tmp));
                 XFree(tmp);
             }
         }

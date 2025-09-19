@@ -21,7 +21,6 @@
 
 #include "common.h"
 #include "debug.h"
-#include "xembed.h"
 
 static int trapped_x11_error_code = 0;
 static int (*old_x11_error_handler)(Display *, XErrorEvent *) = NULL;
@@ -49,7 +48,7 @@ int x11_error_handler(Display *dpy, XErrorEvent *err)
     XGetErrorDatabaseText(
         dpy, "XRequest", req_num_str, "Unknown", req_str, PATH_MAX);
     LOG_ERROR(("X11 error: %s (request: %s, resource 0x%x)\n", msg, req_str,
-        err->request_code, err->minor_code, err->resourceid));
+        err->request_code));
     return 0;
 }
 
@@ -338,7 +337,7 @@ Window x11_find_subwindow_at(
          * from the top in stacking order (i.e. from the end of the list
          * returned by XQueryTree) */
         XQueryTree(dpy, cur, &dummy, &dummy, &children, &nchildren);
-        LOG_TRACE(("cur=0x%x nchildren=%d\n", cur, nchildren));
+        LOG_TRACE(("cur=0x%lx nchildren=%d\n", cur, nchildren));
         if (!x11_ok()) goto fail;
         /* Exit the loop if window has no children */
         if (nchildren == 0) break;
@@ -389,7 +388,7 @@ char *x11_get_window_class(Display *dpy, Window w) {
 
     res = XGetClassHint(dpy, w, &hint);
     if (res == 0) {
-        LOG_TRACE(("XGetClassHint(dpy, 0x%x, &hint) failed: %x", w, res));
+        LOG_TRACE(("XGetClassHint(dpy, 0x%lx, &hint) failed: %x", w, res));
         return NULL;
     }
 
