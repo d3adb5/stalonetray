@@ -42,6 +42,7 @@ jobs:
       - name: Install and cache vbox dependencies
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
+          execute_install_scripts: true
           packages: >
             zstd libvirt-daemon-system virt-manager qemu-kvm libosinfo-bin axel
             expect screen sshpass
