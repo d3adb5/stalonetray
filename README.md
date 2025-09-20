@@ -30,7 +30,7 @@ dockbook and `xsltproc`.
 
 On Debian and Ubuntu, run:
 ```sh
-sudo apt install autoconf automake docbook-xsl libxpm-dev libx11-dev xsltproc
+sudo apt install autoconf automake docbook-xsl libxpm-dev libx11-dev xsltproc libxinerama-dev
 ```
 
 After that run:
@@ -46,6 +46,7 @@ The following message should be displayed after a successful configuration:
 * Debug                  : yes
 * Native KDE support     : yes
 * XPM background support : yes
+* Multi-monitor support  : yes
 * Graceful exit support  : yes
 * Build documentation    : yes
 *
