@@ -7,8 +7,8 @@ on:
   pull_request: {}
 
 jobs:
-  build:
-    name: Build
+  build-linux:
+    name: Build (Ubuntu)
     runs-on: ubuntu-latest
 
     steps:
@@ -30,3 +30,40 @@ jobs:
 
     - name: Make
       run: make
+
+  build-freebsd:
+    name: Build (FreeBSD)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v5
+
+      - name: Disable man-db auto-update
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo rm -f /var/lib/man-db/auto-update
+
+      - name: Install and cache vbox dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          execute_install_scripts: true
+          packages: >
+            zstd libvirt-daemon-system virt-manager qemu-kvm libosinfo-bin axel
+            expect screen sshpass
+
+      - name: Build on FreeBSD 14.2
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14.2"
+          prepare: |
+            pkg install -y autoconf automake gmake libX11 libXpm libXinerama \
+              docbook-xsl libxslt
+          run: |
+            aclocal
+            autoconf
+            autoheader
+            automake --add-missing
+            ./configure
+            gmake
