@@ -245,6 +245,15 @@
   </varlistentry>
 
   <varlistentry>
+  <term><option>-m</option> <replaceable>n</replaceable></term>
+  <term><option>--monitor</option> <replaceable>n</replaceable></term>
+  <term><option>monitor</option> <replaceable>n</replaceable></term>
+  <listitem><para>Set target monitor to <replaceable>n</replaceable>. Default
+  value: <userinput>0</userinput>.
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
   <term><option>--no-shrink</option></term>
   <term><option>no_shrink</option> <optional><replaceable>bool</replaceable></optional></term>
   <listitem><para>Do not shrink tray window back after icon removal. Useful when

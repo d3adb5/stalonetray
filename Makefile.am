@@ -1,6 +1,8 @@
 SUBDIRS=src
 
+if have_xsltproc
 man_MANS=stalonetray.1
+endif
 
 doc_DIST=stalonetrayrc.sample
 if have_xsltproc
