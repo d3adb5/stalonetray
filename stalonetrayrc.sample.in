@@ -77,6 +77,9 @@ log_level err
                              # no limit
 max_geometry 0x0
 
+# monitor <int>              # specifies which monitor to draw the tray in
+# monitor 0
+
 # no_shrink [<bool>]         # disables shrink-back mode
 no_shrink false
 
