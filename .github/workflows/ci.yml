@@ -39,6 +39,13 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      - name: Install and cache vbox dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >
+            zstd libvirt-daemon-system virt-manager qemu-kvm libosinfo-bin axel
+            expect screen sshpass
+
       - name: Build on FreeBSD 14.2
         uses: vmactions/freebsd-vm@v1
         with:
