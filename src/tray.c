@@ -43,6 +43,13 @@ void tray_init()
     tray_data.xa_xrootpmap_id = None;
     tray_data.xa_xsetroot_id = None;
     tray_data.kde_tray_old_mode = 0;
+
+#ifdef XINERAMA_SUPPORTED
+    tray_data.xinerama_active = False;
+    tray_data.n_monitors = 0;
+    tray_data.monitors = NULL;
+#endif
+
     scrollbars_init();
 }
 

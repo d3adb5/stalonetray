@@ -80,6 +80,23 @@ case "$ac_cv_xpm_supported" in
 esac
 feature_list="XPM:$ac_cv_xpm_supported"
 
+dnl ========= libXinerama presence
+
+ac_cv_xinerama_supported=yes
+AC_CHECK_LIB(Xinerama,
+             XineramaQueryScreens, ,
+             [ac_cv_xinerama_supported=no],
+             [$X_LIBS])
+
+case "$ac_cv_xinerama_supported" in
+    yes)
+        AC_DEFINE(XINERAMA_SUPPORTED, 1, [enable multiple monitor support])
+    ;;
+    *)
+    ;;
+esac
+feature_list="$feature_list Xinerama:$ac_cv_xinerama_supported"
+
 dnl ========= KDE icons support
 
 AC_ARG_ENABLE(native-kde,
@@ -225,6 +242,7 @@ if test "x$ac_cv_debug" = "xyes" -a "x$GCC" != "xyes"; then
 fi
 echo "* Native KDE support     : $ac_cv_no_native_kde"
 echo "* XPM background support : $ac_cv_xpm_supported"
+echo "* Multi-monitor support  : $ac_cv_xinerama_supported"
 echo "* Graceful exit support  : $ac_cv_graceful_exit"
 echo "* Build documentation    : $XSLTPROC_WORKS"
 echo "*"
