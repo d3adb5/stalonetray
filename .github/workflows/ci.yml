@@ -7,8 +7,8 @@ on:
   pull_request: {}
 
 jobs:
-  build:
-    name: Build
+  build-linux:
+    name: Build (Ubuntu)
     runs-on: ubuntu-latest
 
     steps:
@@ -30,3 +30,26 @@ jobs:
 
     - name: Make
       run: make
+
+  build-freebsd:
+    name: Build (FreeBSD)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v5
+
+      - name: Build on FreeBSD 14.2
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14.2"
+          prepare: |
+            pkg install -y autoconf automake gmake libX11 libXpm libXinerama \
+              docbook-xsl libxslt
+          run: |
+            aclocal
+            autoconf
+            autoheader
+            automake --add-missing
+            ./configure
+            gmake
