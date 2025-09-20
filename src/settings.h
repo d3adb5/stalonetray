@@ -94,6 +94,10 @@ struct Settings {
     XColor bg_color; /* Tray background color */
     XColor scrollbars_highlight_color; /* Color to highlight scrollbars with */
     int log_level; /* Debug level */
+
+#ifdef XINERAMA_SUPPORTED
+    int monitor; /* Which monitor to display tray in */
+#endif
 };
 
 extern struct Settings settings;

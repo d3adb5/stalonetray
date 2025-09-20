@@ -90,6 +90,10 @@ void init_default_settings()
 #ifdef DELAY_EMBEDDING_CONFIRMATION
     settings.confirmation_delay = 3;
 #endif
+
+#ifdef XINERAMA_SUPPORTED
+    settings.monitor = 0;
+#endif
 }
 
 /* ******* general parsing utils ********* */
@@ -740,6 +744,24 @@ struct Param params[] = {
 
         .parser = (param_parser_t) &parse_copystr
     },
+#ifdef XINERAMA_SUPPORTED
+    {
+        .short_name = "-m",
+        .long_name = "--monitor",
+        .rc_name = "monitor",
+        .references = { (void *) &settings.monitor },
+
+        .pass = 1,
+
+        .min_argc = 1,
+        .max_argc = 1,
+
+        .default_argc = 0,
+        .default_argv = NULL,
+
+        .parser = (param_parser_t) &parse_int
+    },
+#endif
     {
         .short_name = NULL,
         .long_name = "--no-shrink",
@@ -1236,6 +1258,7 @@ void usage(char *progname)
         "    --max-geometry <geometry>   set tray maximal width and height; 0 "
         "indicates\n"
         "                                no limit in respective direction\n"
+        "    -m, --monitor <monitor>     What monitor to display in\n"
         "    --no-shrink                 do not shrink window back after icon "
         "removal\n"
         "    -p, --parent-bg             use parent for background\n"

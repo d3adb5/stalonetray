@@ -46,6 +46,7 @@
 #include "scrollbars.h"
 #include "settings.h"
 #include "tray.h"
+#include "xinerama.h"
 
 struct TrayData tray_data;
 static int tray_status_requested = 0;
@@ -787,6 +788,8 @@ int tray_main(int argc, char **argv)
 #ifdef DEBUG
     ewmh_list_supported_atoms(tray_data.dpy);
 #endif
+    xinerama_init(tray_data.dpy);
+    xinerama_update_geometry();
     /* Create and show tray window */
     tray_create_window(argc, argv);
     tray_acquire_selection();

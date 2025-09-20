@@ -21,6 +21,10 @@
 #include "scrollbars.h"
 #include "xembed.h"
 
+#ifdef XINERAMA_SUPPORTED
+#include <X11/extensions/Xinerama.h>
+#endif
+
 /* Tray opcode messages from System Tray Protocol Specification
  * http:freedesktop.org/Standards/systemtray-spec/systemtray-spec-0.2.html */
 #define SYSTEM_TRAY_REQUEST_DOCK 0
@@ -106,6 +110,13 @@ struct TrayData {
     Atom xa_xsetroot_id; /* Atom: _XSETROOT_ID */
     Pixmap bg_pmap; /* Pixmap for tray background */
     struct Point bg_pmap_dims; /* Background pixmap dimensions */
+
+#ifdef XINERAMA_SUPPORTED
+    /* Xinerama data */
+    int xinerama_active; /* Is Xinerama active? */
+    int n_monitors; /* Number of Xinerama screens */
+    XineramaScreenInfo *monitors; /* Xinerama screens info */
+#endif
 
     /* XEMBED data */
     struct XEMBEDData xembed_data; /* XEMBED data */
