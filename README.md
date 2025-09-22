@@ -35,6 +35,7 @@ sudo dnf install stalonetray
 
 Stalonetray uses autotools. It requires Xlib development packages to be
 installed. Building documentation requires dockbook and `xsltproc`.
+Multi-monitor support requires `libxinerama`.
 
 On Debian and Ubuntu, run:
 
