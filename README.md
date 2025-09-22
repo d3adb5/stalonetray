@@ -5,6 +5,17 @@
 [ci-badge]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml/badge.svg
 [ci-workflow]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml
 
+## Maintenance status
+
+This project was originally developed by [Roman Dubtsov (kolbusa)][gh-kolbusa]
+and recently changed hands. Roman is still involved with, but no longer
+actively maintains the project.
+
+To him goes all the credit for creating and maintaining this project for many
+years.
+
+[gh-kolbusa]: https://github.com/kolbusa
+
 ## Description
 
 Stalonetray is a STAnd-aLONE system TRAY (notification area).x  It has minimal
