@@ -18,7 +18,7 @@ years.
 
 ## Description
 
-Stalonetray is a STAnd-aLONE system TRAY (notification area).x  It has minimal
+Stalonetray is a STAnd-aLONE system TRAY (notification area).  It has minimal
 build and run-time dependencies: the Xlib only. Stalonetray runs under
 virtually any window manager.
 
@@ -45,7 +45,7 @@ sudo dnf install stalonetray
 ## Building from source
 
 Stalonetray uses autotools. It requires Xlib development packages to be
-installed. Building documentation requires dockbook and `xsltproc`.
+installed. Building documentation requires docbook and `xsltproc`.
 Multi-monitor support requires `libxinerama`.
 
 On Debian and Ubuntu, run:
