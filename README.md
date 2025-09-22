@@ -1,6 +1,9 @@
-[![Build Status](https://api.cirrus-ci.com/github/kolbusa/stalonetray.svg)](https://cirrus-ci.com/github/kolbusa/stalonetray)
-
 # STAnd aLONE TRAY
+
+[![CI][ci-badge]][ci-workflow]
+
+[ci-badge]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml/badge.svg
+[ci-workflow]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml
 
 ## Description
 
