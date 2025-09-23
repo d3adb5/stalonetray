@@ -1,4 +1,4 @@
-name: CI
+name: Build
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   pull_request: {}
 
 jobs:
-  build-linux:
-    name: Build (Ubuntu)
+  ubuntu:
+    name: Ubuntu
     runs-on: ubuntu-latest
 
     steps:
@@ -31,8 +31,8 @@ jobs:
     - name: Make
       run: make
 
-  build-freebsd:
-    name: Build (FreeBSD)
+  freebsd:
+    name: FreeBSD
     runs-on: ubuntu-latest
 
     steps:
