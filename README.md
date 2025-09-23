@@ -1,9 +1,9 @@
 # STAnd aLONE TRAY
 
-[![CI][ci-badge]][ci-workflow]
+[![Build][ci-badge]][ci-workflow]
 
-[ci-badge]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml/badge.svg
-[ci-workflow]: https://github.com/d3adb5/stalonetray/actions/workflows/ci.yml
+[ci-badge]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml/badge.svg
+[ci-workflow]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml
 
 ## Maintenance status
 
