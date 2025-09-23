@@ -35,6 +35,10 @@ jobs:
     name: FreeBSD
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        version: [14.2, 14.3, 15.0]
+
     steps:
       - name: Checkout source code
         uses: actions/checkout@v5
@@ -53,10 +57,10 @@ jobs:
             zstd libvirt-daemon-system virt-manager qemu-kvm libosinfo-bin axel
             expect screen sshpass
 
-      - name: Build on FreeBSD 14.2
+      - name: Build on FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
-          release: "14.2"
+          release: ${{ matrix.version }}
           prepare: |
             pkg install -y autoconf automake gmake libX11 libXpm libXinerama \
               docbook-xsl libxslt
