@@ -1,43 +1,46 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  build-tarball:
+    name: Publish Tarball
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v3
+      - name: Checkout source code
+        uses: actions/checkout@v5
 
-    - name: Set up dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y autoconf automake libtool xsltproc docbook-xsl \
-          libxpm-dev libx11-dev libxinerama-dev
+      - name: Disable man-db auto-update
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo rm -f /var/lib/man-db/auto-update
 
-    - name: Run autoreconf
-      run: autoreconf --install
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool xsltproc docbook-xsl \
+            libxpm-dev libx11-dev libxinerama-dev
 
-    - name: Configure
-      run: ./configure
+      - name: Run autoreconf
+        run: autoreconf --install
 
-    - name: Make
-      run: make
+      - name: Configure
+        run: ./configure
 
-    - name: Generate tarball
-      run: |
-        make dist
-        tarball_name=$(ls *.tar.gz)
-        mkdir -p artifacts
-        mv $tarball_name artifacts/
+      - name: Build
+        run: make
 
-    - name: Upload tarball
-      uses: actions/upload-artifact@v3
-      with:
-        name: source-tarball
-        path: artifacts/*.tar.gz
+      - name: Generate tarball
+        run:  make dist
 
+      - name: Upload tarball
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.tar.gz"
