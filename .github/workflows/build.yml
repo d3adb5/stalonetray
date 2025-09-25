@@ -7,6 +7,27 @@ on:
   pull_request: {}
 
 jobs:
+  new-version:
+    name: Preview Version Bump
+    runs-on: ubuntu-latest
+
+    outputs:
+      next-version: ${{ steps.next-version.outputs.version }}
+      has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: next-version
+        uses: thenativeweb/get-next-version@2.7.1
+
+      - name: Show the next version
+        run: |
+          echo "Should bump version: ${{ steps.next-version.outputs.hasNextVersion }}"
+          echo "Next version: ${{ steps.next-version.outputs.version }}"
+
   ubuntu:
     name: Ubuntu
     runs-on: ubuntu-latest
