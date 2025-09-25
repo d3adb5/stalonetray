@@ -1,0 +1,49 @@
+name: Merge
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: merge-to-master
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  new-version:
+    name: Get New Version
+    runs-on: ubuntu-latest
+
+    outputs:
+      next-version: ${{ steps.next-version.outputs.version }}
+      has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: next-version
+        uses: thenativeweb/get-next-version@2.7.1
+
+      - name: Show the next version
+        run: |
+          echo "Should bump version: ${{ steps.next-version.outputs.hasNextVersion }}"
+          echo "Next version: ${{ steps.next-version.outputs.version }}"
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    if: needs.new-version.outputs.has-next-version == 'true'
+    needs: [new-version]
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.new-version.outputs.next-version }}
+          generate_release_notes: true
