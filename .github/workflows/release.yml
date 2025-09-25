@@ -1,46 +1,64 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: merge-to-master
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
-  build-tarball:
-    name: Publish Tarball
+  new-version:
+    name: Get New Version
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@v5
+    outputs:
+      next-version: ${{ steps.next-version.outputs.version }}
+      has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
 
-      - name: Disable man-db auto-update
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: next-version
+        uses: thenativeweb/get-next-version@2.7.1
+
+      - name: Show the next version
+        run: |
+          echo "Should bump version: ${{ steps.next-version.outputs.hasNextVersion }}"
+          echo "Next version: ${{ steps.next-version.outputs.version }}"
+
+  create-release:
+    name: Create
+    runs-on: ubuntu-latest
+
+    if: needs.new-version.outputs.has-next-version == 'true'
+    needs: [new-version]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build distribution tarball
         run: |
           echo "set man-db/auto-update false" | sudo debconf-communicate
           sudo dpkg-reconfigure man-db
           sudo rm -f /var/lib/man-db/auto-update
-
-      - name: Set up dependencies
-        run: |
           sudo apt-get update
           sudo apt-get install -y autoconf automake libtool xsltproc docbook-xsl \
             libxpm-dev libx11-dev libxinerama-dev
+          autoreconf --install
+          ./configure
+          make
+          make dist
 
-      - name: Run autoreconf
-        run: autoreconf --install
-
-      - name: Configure
-        run: ./configure
-
-      - name: Build
-        run: make
-
-      - name: Generate tarball
-        run:  make dist
-
-      - name: Upload tarball
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.new-version.outputs.next-version }}
+          generate_release_notes: true
           files: "*.tar.gz"
