@@ -11,6 +11,8 @@ jobs:
     name: Preview Version Bump
     runs-on: ubuntu-latest
 
+    if: github.event_name == 'pull_request'
+
     outputs:
       next-version: ${{ steps.next-version.outputs.version }}
       has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
