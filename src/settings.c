@@ -22,8 +22,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "config.h"
-
 #include "common.h"
 #include "debug.h"
 #include "layout.h"
@@ -91,7 +89,7 @@ void init_default_settings(void)
     settings.confirmation_delay = 3;
 #endif
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     settings.monitor = 0;
 #endif
 }
@@ -741,7 +739,7 @@ struct Param params[] = {
 
         .parser = (param_parser_t) &parse_copystr
     },
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     {
         .short_name = "-m",
         .long_name = "--monitor",
@@ -1163,7 +1161,7 @@ struct Param params[] = {
     },
 #endif
 
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
     {
         .short_name = NULL,
         .long_name = "--pixmap-bg",
@@ -1655,7 +1653,7 @@ void interpret_settings(void)
     settings.win_gravity = gravity_matrix[settings.grow_gravity];
     settings.bit_gravity = gravity_matrix[settings.icon_gravity];
     /* Parse all background-related settings */
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
     settings.pixmap_bg = (settings.bg_pmap_path != NULL);
 #endif
     if (settings.pixmap_bg) {

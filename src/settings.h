@@ -12,7 +12,6 @@
 #include <X11/X.h>
 #include <X11/Xlib.h>
 
-#include "config.h"
 #include "layout.h"
 
 /* Default name of configuration file */
@@ -95,7 +94,7 @@ struct Settings {
     XColor scrollbars_highlight_color; /* Color to highlight scrollbars with */
     int log_level; /* Debug level */
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     int monitor; /* Which monitor to display tray in */
 #endif
 };

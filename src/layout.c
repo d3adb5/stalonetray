@@ -12,8 +12,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include "config.h"
-
 #include "common.h"
 
 #include "debug.h"

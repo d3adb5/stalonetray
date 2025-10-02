@@ -6,8 +6,6 @@
  * misc X11 utilities
  * ************************************/
 
-#include "config.h"
-
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xmd.h>
@@ -411,7 +409,7 @@ const char *x11_event_names[LASTEvent] = {"unknown0", "unknown1", "KeyPress",
 
 void x11_dump_win_info(Display *dpy, Window wid)
 {
-#if defined(DEBUG) && defined(ENABLE_DUMP_WIN_INFO)
+#if defined(DEBUG) && defined(_ST_WITH_DUMP_WIN_INFO)
     if (settings.log_level >= LOG_LEVEL_TRACE) {
         char cmd[PATH_MAX];
         int rc;

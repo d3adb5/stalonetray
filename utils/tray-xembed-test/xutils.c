@@ -269,7 +269,7 @@ const char *x11_event_names[LASTEvent] = {
 
 void x11_dump_win_info(Display *dpy, Window wid)
 {	
-#ifdef ENABLE_DUMP_WIN_INFO
+#ifdef _ST_WITH_DUMP_WIN_INFO
 	char cmd[PATH_MAX];
 
 	DBG(4, ("Dumping info for 0x%x\n", wid));

@@ -9,8 +9,6 @@
 #ifndef _EWMH_H_
 #define _EWMH_H_
 
-#include "config.h"
-
 #include <X11/X.h>
 #include <X11/Xlib.h>
 
