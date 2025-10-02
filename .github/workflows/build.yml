@@ -34,6 +34,18 @@ jobs:
     name: Ubuntu
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        xinerama: ["enabled", "disabled"]
+        xpm: ["enabled", "disabled"]
+        native_kde: ["enabled", "disabled"]
+        trace_events: ["true", "false"]
+        delay_embedding_confirmation: ["true", "false"]
+        dump_window_information: ["true", "false"]
+        exit_gracefully: ["true", "false"]
+        debug: ["true", "false"]
+
     steps:
     - name: Checkout source code
       uses: actions/checkout@v5
@@ -42,17 +54,22 @@ jobs:
       uses: awalsh128/cache-apt-pkgs-action@v1
       with:
         packages: >
-          autoconf automake libtool xsltproc docbook-xsl libxpm-dev libx11-dev
-          libxinerama-dev
+          xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev meson
 
-    - name: Run autoreconf
-      run: autoreconf --install
+    - name: Set up build directory
+      run: >
+        meson setup build
+          -D xinerama=${{ matrix.xinerama }}
+          -D xpm=${{ matrix.xpm }}
+          -D native_kde=${{ matrix.native_kde }}
+          -D trace_events=${{ matrix.trace_events }}
+          -D delay_embedding_confirmation=${{ matrix.delay_embedding_confirmation }}
+          -D dump_window_information=${{ matrix.dump_window_information }}
+          -D exit_gracefully=${{ matrix.exit_gracefully }}
+          -D debug=${{ matrix.debug }}
 
-    - name: Configure
-      run: ./configure
-
-    - name: Make
-      run: make
+    - name: Build
+      run: meson compile -C build
 
   freebsd:
     name: FreeBSD
@@ -86,12 +103,7 @@ jobs:
         with:
           release: ${{ matrix.version }}
           prepare: |
-            pkg install -y autoconf automake gmake libX11 libXpm libXinerama \
-              docbook-xsl libxslt
+            pkg install -y meson libX11 libXpm libXinerama docbook-xsl libxslt
           run: |
-            aclocal
-            autoconf
-            autoheader
-            automake --add-missing
-            ./configure
-            gmake
+            meson setup build
+            meson compile -C build

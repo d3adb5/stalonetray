@@ -7,7 +7,6 @@
  * -------------------------------*/
 
 #include "debug.h"
-#include "config.h"
 #include "xutils.h"
 
 #include <limits.h>

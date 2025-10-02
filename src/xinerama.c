@@ -1,10 +1,9 @@
 #include <X11/Xlib.h>
 
 #include "debug.h"
-#include "config.h"
 #include "xinerama.h"
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
 #include <X11/extensions/Xinerama.h>
 
 #include "tray.h"
@@ -13,7 +12,7 @@
 
 void xinerama_init(Display *dpy)
 {
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     if (!XineramaIsActive(dpy)) {
         LOG_TRACE(("Xinerama is not active, returning\n"));
         return;
@@ -26,13 +25,13 @@ void xinerama_init(Display *dpy)
 
     LOG_TRACE(("Xinerama reports %d monitors\n", tray_data.n_monitors));
 #else
-    return;
+    (void) dpy; /* unused */
 #endif
 }
 
 void xinerama_update_geometry(void)
 {
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     XineramaScreenInfo chosen_monitor;
     unsigned int dummy;
     int x, y;

@@ -169,7 +169,7 @@ void xembed_handle_event(XEvent ev)
                 tray_data.xembed_data.timestamp =
                     x11_get_server_timestamp(tray_data.dpy, tray_data.tray);
         } else if (ev.xclient.message_type == tray_data.xa_wm_protocols
-            && ev.xclient.data.l[0] == tray_data.xa_wm_take_focus
+            && (unsigned long) ev.xclient.data.l[0] == tray_data.xa_wm_take_focus
             && tray_data.xembed_data.focus_requested) {
             XSetInputFocus(tray_data.dpy, tray_data.xembed_data.focus_proxy,
                 RevertToParent, ev.xclient.data.l[1]);
@@ -469,7 +469,7 @@ int xembed_process_kbd_event(XKeyEvent xkey)
         ("Key event (type=%d) with keycode=0x%x, symb=0x%lx, state=0x%x\n",
             xkey.type, xkey.keycode, keysym, xkey.state));
     for (tmp = tray_data.xembed_data.accels; tmp != NULL; tmp = tmp->next)
-        if (tmp->symb == keysym && tmp->mods == xkey.state) {
+        if ((unsigned long) tmp->symb == keysym && tmp->mods == xkey.state) {
             xembed_act_accel(tmp);
             hits = 1;
         }

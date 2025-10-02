@@ -198,7 +198,7 @@ int image_tint_16(CARD16 *data, size_t len, CARD32 pixel, CARD8 alpha)
     for (p = data + len - 1; p >= data; p--) {
         r = sr16(*p, ralpha) + tr;
         g = sg16(*p, ralpha) + tg;
-        b = sb16(*p, ralpha) + tg;
+        b = sb16(*p, ralpha) + tb;
         *p = ((r >> 8) & 0xf800) | ((g >> 8) & 0x7e0) | ((b >> 8) & 0x1f);
     }
 
@@ -221,7 +221,7 @@ int image_tint_15(CARD16 *data, size_t len, CARD32 pixel, CARD8 alpha)
     for (p = data + len - 1; p >= data; p--) {
         r = sr15(*p, ralpha) + tr;
         g = sg15(*p, ralpha) + tg;
-        b = sb15(*p, ralpha) + tg;
+        b = sb15(*p, ralpha) + tb;
         *p = ((r >> 8) & 0x7c00) | ((g >> 8) & 0x3e0) | ((b >> 8) & 0x1f);
     }
 

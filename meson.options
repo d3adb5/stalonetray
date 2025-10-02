@@ -1,0 +1,15 @@
+option('xinerama', type: 'feature', value: 'enabled',
+  description: 'Enable Xinerama support for multiple monitors')
+option('xpm', type: 'feature', value: 'auto',
+  description: 'Enable XPM background support')
+option('native_kde', type: 'feature', value: 'auto',
+  description: 'Enable native KDE system tray support')
+
+option('trace_events', type: 'boolean', value: false,
+  description: 'Enable X11 event tracing for debugging purposes')
+option('delay_embedding_confirmation', type: 'boolean', value: false,
+  description: 'Delay sending XEMBED_EMBEDDED_NOTIFY message for debugging')
+option('dump_window_information', type: 'boolean', value: false,
+  description: 'Use xprop/xwininfo to dump icon window information')
+option('exit_gracefully', type: 'boolean', value: false,
+  description: 'Use non-portable hack to exit gracefully on signal')

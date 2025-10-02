@@ -11,8 +11,6 @@
 
 #include "debug.h"
 
-#define PROGNAME PACKAGE
-
 /* Default icon size */
 #define FALLBACK_ICON_SIZE 24
 /* Minimal icon size */

@@ -20,16 +20,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "config.h"
-
-#ifdef DEBUG
-#if defined(HAVE_BACKTRACE)
-#include <execinfo.h>
-#elif defined(HAVE_PRINTSTACK)
-#include <ucontext.h>
-#endif
-#endif
-
 #include "common.h"
 #include "debug.h"
 #include "embed.h"
@@ -39,7 +29,7 @@
 #include "xembed.h"
 #include "xutils.h"
 
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
 #include "kde_tray.h"
 #endif
 
@@ -50,7 +40,7 @@
 
 struct TrayData tray_data;
 static int tray_status_requested = 0;
-#ifdef ENABLE_GRACEFUL_EXIT_HACK
+#ifdef _ST_EXIT_GRACEFULLY
 static Display *async_dpy;
 #endif
 
@@ -67,12 +57,12 @@ void my_usleep(useconds_t usec)
 /****************************
  * Signal handlers, cleanup
  ***************************/
-void request_tray_status_on_signal(int sig)
+void request_tray_status_on_signal(int)
 {
     tray_status_requested = 1;
 }
 
-#ifdef ENABLE_GRACEFUL_EXIT_HACK
+#ifdef _ST_EXIT_GRACEFULLY
 void exit_on_signal(int sig)
 {
     if (sig == SIGPIPE) {
@@ -229,7 +219,6 @@ done:
 void remove_icon(Window w)
 {
     struct TrayIcon *ti;
-    char *name;
     /* Ignore false alarms */
     if ((ti = icon_list_find(w)) == NULL) return;
     dump_tray_status();
@@ -288,7 +277,7 @@ int find_invalid_icons(struct TrayIcon *ti)
     return ti->is_invalid;
 }
 
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
 /* Find newly available KDE icons and add them as necessary */
 /* TODO: move to kde_tray.c */
 void kde_icons_update()
@@ -411,7 +400,7 @@ void expose(XExposeEvent ev)
         tray_refresh_window(False);
 }
 
-void visibility_notify(XVisibilityEvent ev) {}
+void visibility_notify(XVisibilityEvent) {}
 
 void property_notify(XPropertyEvent ev)
 {
@@ -429,7 +418,7 @@ void property_notify(XPropertyEvent ev)
         if (settings.parent_bg || settings.transparent || settings.fuzzy_edges)
             tray_refresh_window(True);
     }
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
     /* React on change of list of KDE icons */
     if (ev.atom == tray_data.xa_kde_net_system_tray_windows) {
         if (tray_data.is_active)
@@ -446,7 +435,7 @@ void property_notify(XPropertyEvent ev)
         ewmh_list_supported_atoms(tray_data.dpy);
 #endif
         tray_set_wm_hints();
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
         kde_tray_update_fallback_mode(tray_data.dpy);
 #endif
     }
@@ -514,14 +503,14 @@ void client_message(XClientMessageEvent ev)
 #endif
     /* Graceful exit */
     if (ev.message_type == tray_data.xa_wm_protocols
-        && ev.data.l[0] == tray_data.xa_wm_delete_window
+        && (unsigned long) ev.data.l[0] == tray_data.xa_wm_delete_window
         && ev.window == tray_data.tray) {
         LOG_TRACE(("got WM_DELETE message, will now exit\n"));
         exit(0); // atexit will call cleanup()
     }
     /* Handle _NET_WM_PING */
     if (ev.message_type == tray_data.xa_wm_protocols
-        && ev.data.l[0] == tray_data.xa_net_wm_ping
+        && (unsigned long) ev.data.l[0] == tray_data.xa_net_wm_ping
         && ev.window == tray_data.tray) {
         LOG_TRACE(("got WM_PING message, sending it back\n"));
         XEvent reply;
@@ -540,7 +529,7 @@ void client_message(XClientMessageEvent ev)
             LOG_TRACE(
                 ("dockin' requested by window 0x%lx, serving in a moment\n",
                     ev.data.l[2]));
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
             if (kde_tray_check_for_icon(tray_data.dpy, ev.data.l[2]))
                 cmode = CM_KDE;
             if (kde_tray_is_old_icon(ev.data.l[2]))
@@ -634,7 +623,7 @@ void destroy_notify(XDestroyWindowEvent ev)
     } else if (ev.window != tray_data.tray) {
         /* Try to remove icon from the tray */
         remove_icon(ev.window);
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
     } else if (kde_tray_is_old_icon(ev.window)) {
         /* Since X Server may reuse window ids, remove ev.window
          * from the list of old KDE icons */
@@ -743,7 +732,7 @@ void selection_clear(XSelectionClearEvent ev)
 
 void map_notify(XMapEvent ev)
 {
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
     /* Legacy scheme to handle KDE icons */
     if (tray_data.kde_tray_old_mode) {
         struct TrayIcon *ti = icon_list_find_ex(ev.window);
@@ -760,6 +749,8 @@ void map_notify(XMapEvent ev)
             }
         }
     }
+#else
+    (void) ev; /* unused */
 #endif
 }
 
@@ -794,11 +785,11 @@ int tray_main(int argc, char **argv)
     tray_create_window(argc, argv);
     tray_acquire_selection();
     tray_show_window();
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
     kde_tray_init(tray_data.dpy);
 #endif
     xembed_init();
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
     kde_icons_update();
 #endif
     find_unmanaged_chromium_icons();
@@ -868,7 +859,7 @@ int tray_main(int argc, char **argv)
                 unmap_notify(ev.xunmap);
                 break;
             default:
-#if defined(DEBUG) && defined(TRACE_EVENTS)
+#if defined(DEBUG) && defined(_ST_TRACE_EVENTS)
                 LOG_TRACE(("Unhandled event: %s, serial: %ld, window: 0x%lx\n",
                     x11_event_names[ev.type], ev.xany.serial, ev.xany.window));
 #endif
@@ -887,7 +878,7 @@ bailout:
 }
 
 /* main() for controlling stalonetray remotely */
-int remote_main(int argc, char **argv)
+int remote_main(int, char **)
 {
     Window tray, icon = None;
     int rc;
@@ -925,10 +916,10 @@ int remote_main(int argc, char **argv)
     LOG_TRACE(("wid=0x%lx w=%d h=%d\n", icon, w, h));
     x = (settings.remote_click_pos.x == REMOTE_CLICK_POS_DEFAULT)
         ? w / 2
-        : settings.remote_click_pos.x;
+        : (unsigned int) settings.remote_click_pos.x;
     y = (settings.remote_click_pos.y == REMOTE_CLICK_POS_DEFAULT)
         ? h / 2
-        : settings.remote_click_pos.y;
+        : (unsigned int) settings.remote_click_pos.y;
     /* 3.2. Find subwindow to execute click on */
     win = x11_find_subwindow_at(tray_data.dpy, icon, &x, &y, depth);
     /* 3.3. Send mouse click(s) to target */
@@ -966,7 +957,7 @@ int main(int argc, char **argv)
     /* Register cleanup and signal handlers */
     atexit(cleanup);
     signal(SIGUSR1, &request_tray_status_on_signal);
-#ifdef ENABLE_GRACEFUL_EXIT_HACK
+#ifdef _ST_EXIT_GRACEFULLY
     signal(SIGINT, &exit_on_signal);
     signal(SIGTERM, &exit_on_signal);
     signal(SIGPIPE, &exit_on_signal);
@@ -976,7 +967,7 @@ int main(int argc, char **argv)
         DIE(("could not open display\n"));
     else
         LOG_TRACE(("Opened dpy %p\n", tray_data.dpy));
-#ifdef ENABLE_GRACEFUL_EXIT_HACK
+#ifdef _ST_EXIT_GRACEFULLY
     if ((async_dpy = XOpenDisplay(settings.display_str)) == NULL)
         DIE(("could not open display\n"));
     else

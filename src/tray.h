@@ -16,12 +16,11 @@
 #include <limits.h>
 
 #include "common.h"
-#include "config.h"
 #include "icons.h"
 #include "scrollbars.h"
 #include "xembed.h"
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
 
@@ -111,7 +110,7 @@ struct TrayData {
     Pixmap bg_pmap; /* Pixmap for tray background */
     struct Point bg_pmap_dims; /* Background pixmap dimensions */
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     /* Xinerama data */
     int xinerama_active; /* Is Xinerama active? */
     int n_monitors; /* Number of Xinerama screens */

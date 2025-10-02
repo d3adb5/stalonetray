@@ -108,7 +108,7 @@ int x11_untrap_errors();
 /* Array that maps event_number -> event_name */
 const extern char *x11_event_names[LASTEvent];
 
-/* Dumps window info. Does nothing unless ENABLE_DUMP_WIN_INFO is defined,
+/* Dumps window info. Does nothing unless _ST_WITH_DUMP_WIN_INFO is defined,
  * launches xwininfo and xwinprop otherwise */
 void x11_dump_win_info(Display *dpy, Window w);
 

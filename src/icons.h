@@ -10,7 +10,6 @@
 #ifndef _ICONS_H_
 #define _ICONS_H_
 
-#include "config.h"
 #include <X11/X.h>
 #include <X11/Xmd.h>
 

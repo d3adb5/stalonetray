@@ -6,14 +6,12 @@
  * tray functions
  * ************************************/
 
-#include "config.h"
-
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xmd.h>
 #include <X11/Xutil.h>
 
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
 #include <X11/xpm.h>
 #endif
 
@@ -28,7 +26,7 @@
 #include "wmh.h"
 #include "xutils.h"
 
-#ifndef NO_NATIVE_KDE
+#ifdef _ST_WITH_NATIVE_KDE
 #endif
 
 #include "debug.h"
@@ -44,7 +42,7 @@ void tray_init()
     tray_data.xa_xsetroot_id = None;
     tray_data.kde_tray_old_mode = 0;
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     tray_data.xinerama_active = False;
     tray_data.n_monitors = 0;
     tray_data.monitors = NULL;
@@ -53,7 +51,7 @@ void tray_init()
     scrollbars_init();
 }
 
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
 int tray_init_pixmap_bg()
 {
     XpmAttributes xpma;
@@ -608,7 +606,7 @@ void tray_create_window(int argc, char **argv)
     x11_extend_root_event_mask(tray_data.dpy, PropertyChangeMask);
     scrollbars_create();
     /* Set tray window background if necessary */
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
     if (settings.pixmap_bg) tray_init_pixmap_bg();
 #endif
     if (settings.parent_bg)
