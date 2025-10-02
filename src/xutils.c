@@ -84,7 +84,7 @@ int x11_untrap_errors()
 static Window timestamp_wnd;
 static Atom timestamp_atom = None;
 
-Bool x11_wait_for_timestamp(Display *dpy, XEvent *xevent, XPointer data)
+Bool x11_wait_for_timestamp(Display *, XEvent *xevent, XPointer data)
 {
     return ((xevent->type == PropertyNotify
                 && xevent->xproperty.window == *((Window *)data)
@@ -172,7 +172,7 @@ int x11_send_client_msg32(Display *dpy, Window dst, Window wnd, Atom type,
     return x11_ok() && rc != 0;
 }
 
-int x11_send_visibility(Display *dpy, Window dst, long state)
+int x11_send_visibility(Display *, Window dst, long state)
 {
     XEvent xe;
     int rc;
@@ -217,7 +217,7 @@ int x11_send_button(Display *dpy, int press, Window dst, Window root,
 }
 
 int x11_send_expose(
-    Display *dpy, Window dst, int x, int y, int width, int height)
+    Display *, Window dst, int x, int y, int width, int height)
 {
     XEvent xe;
     int rc;
@@ -233,7 +233,7 @@ int x11_send_expose(
 }
 
 int x11_refresh_window(
-    Display *dpy, Window dst, int width, int height, int exposures)
+    Display *, Window dst, int width, int height, int exposures)
 {
     x11_send_visibility(tray_data.dpy, dst, VisibilityFullyObscured);
     x11_send_visibility(tray_data.dpy, dst, VisibilityUnobscured);
@@ -303,8 +303,7 @@ Window x11_find_subwindow_by_name(Display *dpy, Window tgt, char *name)
 {
     char *tgt_name = NULL;
     Window ret = None, *children, dummy;
-    int i;
-    unsigned int nchildren;
+    unsigned int i, nchildren;
     if (XFetchName(dpy, tgt, &tgt_name)) {
         LOG_TRACE(("tgt_name=\"%s\", name=\"%s\"\n", tgt_name, name));
         if (!strcmp(tgt_name, name)) ret = tgt;

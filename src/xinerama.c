@@ -26,7 +26,7 @@ void xinerama_init(Display *dpy)
 
     LOG_TRACE(("Xinerama reports %d monitors\n", tray_data.n_monitors));
 #else
-    return;
+    (void) dpy; /* unused */
 #endif
 }
 

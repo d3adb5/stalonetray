@@ -67,7 +67,7 @@ void my_usleep(useconds_t usec)
 /****************************
  * Signal handlers, cleanup
  ***************************/
-void request_tray_status_on_signal(int sig)
+void request_tray_status_on_signal(int)
 {
     tray_status_requested = 1;
 }
@@ -229,7 +229,6 @@ done:
 void remove_icon(Window w)
 {
     struct TrayIcon *ti;
-    char *name;
     /* Ignore false alarms */
     if ((ti = icon_list_find(w)) == NULL) return;
     dump_tray_status();
@@ -411,7 +410,7 @@ void expose(XExposeEvent ev)
         tray_refresh_window(False);
 }
 
-void visibility_notify(XVisibilityEvent ev) {}
+void visibility_notify(XVisibilityEvent) {}
 
 void property_notify(XPropertyEvent ev)
 {
@@ -514,14 +513,14 @@ void client_message(XClientMessageEvent ev)
 #endif
     /* Graceful exit */
     if (ev.message_type == tray_data.xa_wm_protocols
-        && ev.data.l[0] == tray_data.xa_wm_delete_window
+        && (unsigned long) ev.data.l[0] == tray_data.xa_wm_delete_window
         && ev.window == tray_data.tray) {
         LOG_TRACE(("got WM_DELETE message, will now exit\n"));
         exit(0); // atexit will call cleanup()
     }
     /* Handle _NET_WM_PING */
     if (ev.message_type == tray_data.xa_wm_protocols
-        && ev.data.l[0] == tray_data.xa_net_wm_ping
+        && (unsigned long) ev.data.l[0] == tray_data.xa_net_wm_ping
         && ev.window == tray_data.tray) {
         LOG_TRACE(("got WM_PING message, sending it back\n"));
         XEvent reply;
@@ -760,6 +759,8 @@ void map_notify(XMapEvent ev)
             }
         }
     }
+#else
+    (void) ev; /* unused */
 #endif
 }
 
@@ -887,7 +888,7 @@ bailout:
 }
 
 /* main() for controlling stalonetray remotely */
-int remote_main(int argc, char **argv)
+int remote_main(int, char **)
 {
     Window tray, icon = None;
     int rc;
@@ -925,10 +926,10 @@ int remote_main(int argc, char **argv)
     LOG_TRACE(("wid=0x%lx w=%d h=%d\n", icon, w, h));
     x = (settings.remote_click_pos.x == REMOTE_CLICK_POS_DEFAULT)
         ? w / 2
-        : settings.remote_click_pos.x;
+        : (unsigned int) settings.remote_click_pos.x;
     y = (settings.remote_click_pos.y == REMOTE_CLICK_POS_DEFAULT)
         ? h / 2
-        : settings.remote_click_pos.y;
+        : (unsigned int) settings.remote_click_pos.y;
     /* 3.2. Find subwindow to execute click on */
     win = x11_find_subwindow_at(tray_data.dpy, icon, &x, &y, depth);
     /* 3.3. Send mouse click(s) to target */
