@@ -37,14 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        xinerama: ["enabled", "disabled"]
-        xpm: ["enabled", "disabled"]
-        native_kde: ["enabled", "disabled"]
-        trace_events: ["true", "false"]
-        delay_embedding_confirmation: ["true", "false"]
-        dump_window_information: ["true", "false"]
-        exit_gracefully: ["true", "false"]
-        debug: ["true", "false"]
+        featureset: ["base", "xinerama", "xpm", "native_kde", "all", "debug"]
 
     steps:
     - name: Checkout source code
@@ -58,15 +51,24 @@ jobs:
 
     - name: Set up build directory
       run: >
-        meson setup build
-          -D xinerama=${{ matrix.xinerama }}
-          -D xpm=${{ matrix.xpm }}
-          -D native_kde=${{ matrix.native_kde }}
-          -D trace_events=${{ matrix.trace_events }}
-          -D delay_embedding_confirmation=${{ matrix.delay_embedding_confirmation }}
-          -D dump_window_information=${{ matrix.dump_window_information }}
-          -D exit_gracefully=${{ matrix.exit_gracefully }}
-          -D debug=${{ matrix.debug }}
+        if [ "${{ matrix.featureset }}" = "base" ]; then
+          echo "== Basic build =="
+          meson setup --builtype release build
+        elif [ "${{ matrix.featureset }}" = "all" ]; then
+          echo "== Enabling all features =="
+          meson setup --buildtype release build \
+            -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
+        elif [ "${{ matrix.featureset }}" = "debug" ]; then
+          echo "== Debug build with all features enabled =="
+          meson setup --buildtype debug build \
+            -D xinerama=enabled -D xpm=enabled -D native_kde=enabled \
+            -D trace_events=true -D delay_embedding_confirmation=true \
+            -D dump_window_information=true -D exit_gracefully=true
+        else
+          echo "== Enabling feature ${{ matrix.featureset }} =="
+          meson setup --buildtype release build \
+            -D ${{ matrix.featureset }}=enabled
+        fi
 
     - name: Build
       run: meson compile -C build
@@ -105,5 +107,17 @@ jobs:
           prepare: |
             pkg install -y meson libX11 libXpm libXinerama docbook-xsl libxslt
           run: |
-            meson setup build
+            echo "== Basic build =="
+            meson setup --buildtype release build
+            meson compile -C build
+
+            for feature in xinerama xpm native_kde; do
+              echo "== Building with $feature enabled =="
+              meson setup --wipe build -D $feature=enabled
+              meson compile -C build
+            done
+
+            echo "== Building with all features enabled =="
+            meson setup --wipe build \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
             meson compile -C build
