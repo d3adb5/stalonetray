@@ -104,8 +104,9 @@ jobs:
         uses: vmactions/freebsd-vm@v1
         with:
           release: ${{ matrix.version }}
-          prepare: |
-            pkg install -y meson libX11 libXpm libXinerama docbook-xsl libxslt
+          prepare: >-
+            pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl
+              libxslt
           run: |
             echo "== Basic build =="
             meson setup --buildtype release build
