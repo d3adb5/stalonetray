@@ -53,20 +53,20 @@ jobs:
       run: >
         if [ "${{ matrix.featureset }}" = "base" ]; then
           echo "== Basic build =="
-          meson setup --builtype release build
+          meson setup --builtype release build -D c_std=gnu2x
         elif [ "${{ matrix.featureset }}" = "all" ]; then
           echo "== Enabling all features =="
-          meson setup --buildtype release build \
+          meson setup --buildtype release build -D c_std=gnu2x \
             -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
         elif [ "${{ matrix.featureset }}" = "debug" ]; then
           echo "== Debug build with all features enabled =="
-          meson setup --buildtype debug build \
+          meson setup --buildtype debug build -D c_std=gnu2x \
             -D xinerama=enabled -D xpm=enabled -D native_kde=enabled \
             -D trace_events=true -D delay_embedding_confirmation=true \
             -D dump_window_information=true -D exit_gracefully=true
         else
           echo "== Enabling feature ${{ matrix.featureset }} =="
-          meson setup --buildtype release build \
+          meson setup --buildtype release build -D c_std=gnu2x \
             -D ${{ matrix.featureset }}=enabled
         fi
 

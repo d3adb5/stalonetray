@@ -2,7 +2,7 @@ project(
   'stalonetray',
   'c',
   version: '0.9.0',
-  default_options: ['warning_level=3', 'c_std=gnu23,gnu2x'],
+  default_options: ['warning_level=3', 'c_std=gnu23'],
   meson_version: '>=1.1.0',
 )
 
