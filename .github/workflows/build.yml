@@ -105,8 +105,7 @@ jobs:
         with:
           release: ${{ matrix.version }}
           prepare: >-
-            pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl
-              libxslt
+            pkg install -y pkgconf meson libX11 libXpm libXinerama
           run: |
             echo "== Basic build =="
             meson setup --buildtype release build
