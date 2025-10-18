@@ -53,7 +53,7 @@ jobs:
       run: >
         if [ "${{ matrix.featureset }}" = "base" ]; then
           echo "== Basic build =="
-          meson setup --builtype release build -D c_std=gnu2x
+          meson setup --buildtype release build -D c_std=gnu2x
         elif [ "${{ matrix.featureset }}" = "all" ]; then
           echo "== Enabling all features =="
           meson setup --buildtype release build -D c_std=gnu2x \
