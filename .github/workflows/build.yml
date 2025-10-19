@@ -110,8 +110,15 @@ jobs:
           release: ${{ matrix.version }}
           prepare: |
             mkdir -p /usr/local/etc/pkg/repos
-            echo "FreeBSD: {url: "pkg+http://pkg.freebsd.org/\${ABI}/latest"}" \
-              > /usr/local/etc/pkg/repos/FreeBSD.conf
+            repoFile="/usr/local/etc/pkg/repos/FreeBSD.conf"
+
+            if [ ${{ matrix.version }} = "15.0" ]; then
+              repoURL="http://pkg.freebsd.org/\${ABI}/latest"
+            else
+              repoURL="pkg+http://pkg.freebsd.org/\${ABI}/latest"
+            fi
+
+            echo "FreeBSD: { url: ${repoURL} }" > "$repoFile"
             IGNORE_OSVERSION=yes pkg update -f
 
             pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl \
