@@ -53,7 +53,7 @@ if [ -z "$stylesheet" ]; then
 fi
 
 sed "s/@VERSION_STR@/$version_str/g" "$template" > "$intermediate_xml"
-xsltproc --nonet -o "$output" "$stylesheet" "$intermediate_xml"
+xsltproc -o "$output" "$stylesheet" "$intermediate_xml"
 
 rm -f "$intermediate_xml"
 
