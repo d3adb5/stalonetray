@@ -7,7 +7,8 @@ project(
 )
 
 build_args = [
-  '-O2', '-Wno-missing-braces',
+  '-O2',
+  '-Wno-missing-braces',
   '-DPROGNAME="@0@"'.format(meson.project_name()),
   '-DVERSION="@0@"'.format(meson.project_version()),
 ]
@@ -93,5 +94,5 @@ custom_target(
   'manpage',
   input: 'stalonetray.xml.in',
   output: 'stalonetray.1',
-  command: [buildman, '@INPUT@', '@OUTPUT@', meson.project_version()]
+  command: [buildman, '@INPUT@', '@OUTPUT@', meson.project_version()],
 )
