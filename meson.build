@@ -84,3 +84,14 @@ executable(
   c_args: build_args,
   dependencies: _dependencies,
 )
+
+# == Documentation =============================================================
+
+buildman = find_program('buildman.sh')
+
+custom_target(
+  'manpage',
+  input: 'stalonetray.xml.in',
+  output: 'stalonetray.1',
+  command: [buildman, '@INPUT@', '@OUTPUT@', meson.project_version()]
+)
