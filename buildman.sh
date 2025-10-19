@@ -33,8 +33,14 @@ done
 for root in \
     /usr/share/sgml/docbook/stylesheet/xsl/nwalsh \
     /usr/share/xml/docbook/stylesheet/docbook-xs \
+    /usr/share/xml/docbook/stylesheet/docbook-xsl-nons \
     /usr/share/xml/docbook/xsl-stylesheets \
-    /usr/share/sgml/docbook/xsl-stylesheets; do
+    /usr/share/sgml/docbook/xsl-stylesheets \
+    /usr/share/xml/docbook/xsl-stylesheets-*-nons \
+    /usr/share/sgml/docbook/xsl-stylesheets \
+    /usr/share/xsl/docbook \
+    /usr/local/share/xsl/docbook \
+  ; do
   if [ -f "$root/manpages/docbook.xsl" ]; then
     stylesheet="$root/manpages/docbook.xsl"
     break
