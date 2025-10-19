@@ -106,10 +106,16 @@ jobs:
       - name: Build on FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
+          arch: amd64
           release: ${{ matrix.version }}
-          prepare: >-
-            pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl
-              textproc/libxslt
+          prepare: |
+            mkdir -p /usr/local/etc/pkg/repos
+            echo "FreeBSD: {url: "pkg+http://pkg.freebsd.org/\${ABI}/latest"}" \
+              > /usr/local/etc/pkg/repos/FreeBSD.conf
+            IGNORE_OSVERSION=yes pkg update -f
+
+            pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl \
+              libxslt
           run: |
             echo "== Basic build =="
             meson setup --buildtype release build
