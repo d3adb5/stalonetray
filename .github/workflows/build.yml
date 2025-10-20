@@ -17,41 +17,41 @@ jobs:
         featureset: ["base", "xinerama", "xpm", "native_kde", "all", "debug"]
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v5
+      - name: Checkout source code
+        uses: actions/checkout@v5
 
-    - name: Install and cache dependencies
-      uses: awalsh128/cache-apt-pkgs-action@v1
-      with:
-        packages: >
-          xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev meson
+      - name: Install and cache dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >
+            xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev meson
 
-    - name: Set up build directory
-      run: >
-        if [ "${{ matrix.featureset }}" = "base" ]; then
-          echo "== Basic build =="
-          meson setup --buildtype release build -D c_std=gnu2x
-        elif [ "${{ matrix.featureset }}" = "all" ]; then
-          echo "== Enabling all features =="
-          meson setup --buildtype release build -D c_std=gnu2x \
-            -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
-        elif [ "${{ matrix.featureset }}" = "debug" ]; then
-          echo "== Debug build with all features enabled =="
-          meson setup --buildtype debug build -D c_std=gnu2x \
-            -D xinerama=enabled -D xpm=enabled -D native_kde=enabled \
-            -D trace_events=true -D delay_embedding_confirmation=true \
-            -D dump_window_information=true -D exit_gracefully=true
-        else
-          echo "== Enabling feature ${{ matrix.featureset }} =="
-          meson setup --buildtype release build -D c_std=gnu2x \
-            -D ${{ matrix.featureset }}=enabled
-        fi
+      - name: Set up build directory
+        run: >
+          if [ "${{ matrix.featureset }}" = "base" ]; then
+            echo "== Basic build =="
+            meson setup --buildtype release build -D c_std=gnu2x
+          elif [ "${{ matrix.featureset }}" = "all" ]; then
+            echo "== Enabling all features =="
+            meson setup --buildtype release build -D c_std=gnu2x \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
+          elif [ "${{ matrix.featureset }}" = "debug" ]; then
+            echo "== Debug build with all features enabled =="
+            meson setup --buildtype debug build -D c_std=gnu2x \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled \
+              -D trace_events=true -D delay_embedding_confirmation=true \
+              -D dump_window_information=true -D exit_gracefully=true
+          else
+            echo "== Enabling feature ${{ matrix.featureset }} =="
+            meson setup --buildtype release build -D c_std=gnu2x \
+              -D ${{ matrix.featureset }}=enabled
+          fi
 
-    - name: Build
-      run: meson compile -C build stalonetray
+      - name: Build
+        run: meson compile -C build stalonetray
 
-    - name: Build manpage
-      run: meson compile -C build manpage
+      - name: Build manpage
+        run: meson compile -C build manpage
 
   freebsd:
     name: FreeBSD
