@@ -482,8 +482,8 @@ int parse_size(int, const char **argv, void **references, int)
     if ((bitmask & HeightValue) == 0)
         height = width;
 
-    size->x = (width > INT_MAX) ? INT_MAX : width;
-    size->y = (height > INT_MAX) ? INT_MAX : height;
+    size->x = (width > (unsigned int) INT_MAX) ? INT_MAX : (int) width;
+    size->y = (height > (unsigned int) INT_MAX) ? INT_MAX : (int) height;
 
     return SUCCESS;
 }
