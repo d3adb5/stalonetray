@@ -20,6 +20,12 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      - name: Disable man-db auto-update
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo rm -f /var/lib/man-db/auto-update
+
       - name: Install and cache dependencies
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
