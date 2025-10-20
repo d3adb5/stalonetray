@@ -50,15 +50,15 @@ jobs:
           sudo dpkg-reconfigure man-db
           sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
-          sudo apt-get install -y autoconf automake libtool xsltproc docbook-xsl \
-            libxpm-dev libx11-dev libxinerama-dev
-          autoreconf --install
-          ./configure
-          make
-          make dist
+          sudo apt-get install -y \
+            xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev
+
+          pip install 'meson>=1.5.0'
+          meson setup --buildtype release _build -D c_std=gnu2x
+          meson dist -C _build
 
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.new-version.outputs.next-version }}
           generate_release_notes: true
-          files: "*.tar.gz"
+          files: "_build/meson-dist/*"

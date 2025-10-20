@@ -13,7 +13,6 @@
 #include <stdlib.h>
 
 #include "common.h"
-#include "config.h"
 #include "settings.h"
 #include "tray.h"
 

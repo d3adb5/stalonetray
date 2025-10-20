@@ -42,18 +42,23 @@ int kde_tray_update_fallback_mode(Display *dpy)
 
 void kde_tray_init(Display *dpy)
 {
+    static int initialized = False;
+
     unsigned long n_client_windows, i;
     Window *client_windows;
     Atom xa_net_client_list;
+
     if (!kde_tray_update_fallback_mode(dpy)) return;
-    /* n_old_kde_icons == -1 iff this is the first time this function is called
-     * with fallback mode disabled */
-    if (n_old_kde_icons != -1) return;
+
+    /* do nothing if this function was already called */
+    if (initialized) return;
+
     /* 1. If theres no previous tray selection owner, try to embed all
      * available KDE icons and, therefore, leave the list of old KDE icons
      * empty */
     if (tray_data.old_selection_owner == None) {
         n_old_kde_icons = 0;
+        initialized = True;
         return;
     }
     /* 2.Next, we are going to remove some entries from old_kde_icons list */
@@ -89,11 +94,13 @@ void kde_tray_init(Display *dpy)
             LOG_TRACE(
                 ("0x%lx is marked as an old KDE icon\n", old_kde_icons[i]));
 #endif
+
+    initialized = True;
 }
 
 int kde_tray_update_old_icons(Display *dpy)
 {
-    int i, rc;
+    unsigned int i, rc;
     XWindowAttributes xwa;
     /* Remove dead entries from old kde icons list.
      * We use XGetWindowAttributes to see if the
@@ -107,7 +114,7 @@ int kde_tray_update_old_icons(Display *dpy)
 
 int kde_tray_is_old_icon(Window w)
 {
-    int i;
+    unsigned int i;
     for (i = 0; i < n_old_kde_icons; i++)
         if (old_kde_icons[i] == w) return True;
     return False;
@@ -115,7 +122,7 @@ int kde_tray_is_old_icon(Window w)
 
 void kde_tray_old_icons_remove(Window w)
 {
-    int i;
+    unsigned int i;
     for (i = 0; i < n_old_kde_icons; i++)
         if (old_kde_icons[i] == w) {
             LOG_TRACE(("0x%lx unmarked as an old kde icon\n", w));
@@ -151,8 +158,7 @@ int kde_tray_check_for_icon(Display *dpy, Window w)
 Window kde_tray_find_icon(Display *dpy, Window w)
 {
     Window root, parent, *children = NULL;
-    unsigned int nchildren;
-    int i;
+    unsigned int nchildren, i;
     Window r = None;
     if (kde_tray_check_for_icon(dpy, w)) return w;
     XQueryTree(dpy, w, &root, &parent, &children, &nchildren);

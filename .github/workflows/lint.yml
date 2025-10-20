@@ -1,0 +1,62 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - master
+  pull_request: {}
+
+jobs:
+  new-version:
+    name: Version Bump Check
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'pull_request'
+
+    outputs:
+      next-version: ${{ steps.next-version.outputs.version }}
+      has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - id: next-version
+        uses: thenativeweb/get-next-version@2.7.1
+
+      - name: Install meson
+        run: pip install 'meson>=1.5.0'
+
+      - name: Show the next version
+        run: |
+          mesonV=$(meson introspect meson.build --projectinfo | jq -r .version)
+          wantedV="${{ steps.next-version.outputs.version }}"
+          shouldBump="${{ steps.next-version.outputs.hasNextVersion }}"
+
+          echo "Should bump version: $shouldBump"
+          echo "Next version: $wantedV"
+          echo "Current version on meson.build: $mesonV"
+
+          if "$shouldBump" && [ "$mesonV" != "$wantedV" ]; then
+            echo "Version bump mismatch! Expected $wantedV but found $mesonV"
+            exit 1
+          elif "$shouldBump"; then
+            echo "Version bump detected and matches meson.build"
+          else
+            echo "No version change detected, nothing to do"
+          fi
+
+  meson-format:
+    name: Meson Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v5
+
+      - name: Install meson
+        run: pip install 'meson>=1.5.0'
+
+      - name: Run meson-format
+        run: meson format --recursive -q

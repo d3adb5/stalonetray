@@ -1,0 +1,2 @@
+indent_by = '  '
+max_line_length = 80

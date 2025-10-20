@@ -7,52 +7,57 @@ on:
   pull_request: {}
 
 jobs:
-  new-version:
-    name: Preview Version Bump
-    runs-on: ubuntu-latest
-
-    if: github.event_name == 'pull_request'
-
-    outputs:
-      next-version: ${{ steps.next-version.outputs.version }}
-      has-next-version: ${{ steps.next-version.outputs.hasNextVersion }}
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - id: next-version
-        uses: thenativeweb/get-next-version@2.7.1
-
-      - name: Show the next version
-        run: |
-          echo "Should bump version: ${{ steps.next-version.outputs.hasNextVersion }}"
-          echo "Next version: ${{ steps.next-version.outputs.version }}"
-
   ubuntu:
     name: Ubuntu
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        featureset: ["base", "xinerama", "xpm", "native_kde", "all", "debug"]
+
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v5
+      - name: Checkout source code
+        uses: actions/checkout@v5
 
-    - name: Install and cache dependencies
-      uses: awalsh128/cache-apt-pkgs-action@v1
-      with:
-        packages: >
-          autoconf automake libtool xsltproc docbook-xsl libxpm-dev libx11-dev
-          libxinerama-dev
+      - name: Disable man-db auto-update
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo rm -f /var/lib/man-db/auto-update
 
-    - name: Run autoreconf
-      run: autoreconf --install
+      - name: Install and cache dependencies
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >
+            xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev meson
 
-    - name: Configure
-      run: ./configure
+      - name: Set up build directory
+        run: >
+          if [ "${{ matrix.featureset }}" = "base" ]; then
+            echo "== Basic build =="
+            meson setup --buildtype release build -D c_std=gnu2x
+          elif [ "${{ matrix.featureset }}" = "all" ]; then
+            echo "== Enabling all features =="
+            meson setup --buildtype release build -D c_std=gnu2x \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
+          elif [ "${{ matrix.featureset }}" = "debug" ]; then
+            echo "== Debug build with all features enabled =="
+            meson setup --buildtype debug build -D c_std=gnu2x \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled \
+              -D trace_events=true -D delay_embedding_confirmation=true \
+              -D dump_window_information=true -D exit_gracefully=true
+          else
+            echo "== Enabling feature ${{ matrix.featureset }} =="
+            meson setup --buildtype release build -D c_std=gnu2x \
+              -D ${{ matrix.featureset }}=enabled
+          fi
 
-    - name: Make
-      run: make
+      - name: Build
+        run: meson compile -C build stalonetray
+
+      - name: Build manpage
+        run: meson compile -C build manpage
 
   freebsd:
     name: FreeBSD
@@ -84,14 +89,38 @@ jobs:
       - name: Build on FreeBSD VM
         uses: vmactions/freebsd-vm@v1
         with:
+          arch: amd64
           release: ${{ matrix.version }}
           prepare: |
-            pkg install -y autoconf automake gmake libX11 libXpm libXinerama \
-              docbook-xsl libxslt
+            mkdir -p /usr/local/etc/pkg/repos
+            repoFile="/usr/local/etc/pkg/repos/FreeBSD.conf"
+
+            if [ ${{ matrix.version }} = "15.0" ]; then
+              repoURL="http://pkg.freebsd.org/\${ABI}/latest"
+            else
+              repoURL="pkg+http://pkg.freebsd.org/\${ABI}/latest"
+            fi
+
+            echo "FreeBSD: { url: ${repoURL} }" > "$repoFile"
+            IGNORE_OSVERSION=yes pkg update -f
+
+            pkg install -y pkgconf meson libX11 libXpm libXinerama docbook-xsl \
+              libxslt
           run: |
-            aclocal
-            autoconf
-            autoheader
-            automake --add-missing
-            ./configure
-            gmake
+            echo "== Basic build =="
+            meson setup --buildtype release build
+            meson compile -C build stalonetray
+            meson compile -C build manpage
+
+            for feature in xinerama xpm native_kde; do
+              echo "== Building with $feature enabled =="
+              meson setup --wipe build -D $feature=enabled
+              meson compile -C build stalonetray
+              meson compile -C build manpage
+            done
+
+            echo "== Building with all features enabled =="
+            meson setup --wipe build \
+              -D xinerama=enabled -D xpm=enabled -D native_kde=enabled
+            meson compile -C build stalonetray
+            meson compile -C build manpage

@@ -142,14 +142,14 @@ int mwm_set_hints(Display *dpy, Window wnd, unsigned long decorations,
     unsigned long functions)
 {
     PropMotifWmHints *prop = NULL, new_prop;
-    int act_fmt, rc;
+    int act_fmt;
     unsigned long nitems, bytes_after;
     static Atom atom = None, act_type;
     /* Check if WM supports Motif WM hints */
     if (atom == None) atom = XInternAtom(dpy, "_MOTIF_WM_HINTS", False);
     if (atom == None) return FAILURE;
     /* Get current hints */
-    rc = XGetWindowProperty(dpy, wnd, atom, 0, 5, False, atom, &act_type,
+    XGetWindowProperty(dpy, wnd, atom, 0, 5, False, atom, &act_type,
         &act_fmt, &nitems, &bytes_after, (unsigned char **)&prop);
     if ((act_type == None && act_fmt == 0 && bytes_after == 0)
         || nitems == 0) {

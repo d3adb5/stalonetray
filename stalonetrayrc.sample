@@ -1,9 +1,7 @@
-# vim:filetype=config:tw=80:et
+# vim: filetype=config textwidth=80 expandtab
 #
 # This is sample ~/.stalonetrayrc, resembling default configuration.
 # Remember: command line parameters take precedence.
-#
-# Directives introduced in @VERSION_STR@ are marked with "NEW in @VERSION_STR@"
 #
 ####################################################################
 #
@@ -12,7 +10,8 @@
 ####################################################################
 
 # background <color>         # color can be specified as an HTML hex triplet or
-                             # as a name from rgb.txt, note that '#' must be quoted
+                             # as a name from rgb.txt, note that '#' must be
+                             # quoted
 background "#777777"
 
 # decorations <decspec>      # set trays window decorations; possible values for
@@ -23,7 +22,7 @@ decorations none
 
 # dockapp_mode <mode>        # set dockapp mode, which can be either simple (for
                              # e.g. OpenBox, wmaker for WindowMaker, or none
-                             # (default). NEW in @VERSION_STR@.
+                             # (default).
 dockapp_mode none
 
 # fuzzy_edges [<level>]      # enable fuzzy edges and set fuzziness level. level
@@ -38,9 +37,9 @@ geometry 1x1+0+0
 
 # grow_gravity <gravity>     # one of N, S, E, W, NW, NE, SW, SE; tray will grow
                              # in the direction opposite to one specified by
-							 # grow_gravity; if horizontal or vertical
-							 # direction is not specified, tray will not grow in
-							 # that direction
+                             # grow_gravity; if horizontal or vertical
+                             # direction is not specified, tray will not grow in
+                             # that direction
 grow_gravity NW
 
 # icon_gravity <gravity>     # icon placement gravity, one of NW, NE, SW, SE
@@ -58,13 +57,11 @@ slot_size 32x64
 # log_level <level>          # controls the amount of logging output, level can
                              # be err (default), info, or trace (enabled only
                              # when stalonetray configured with --enable-debug)
-                             # NEW in @VERSION_STR@.
 log_level err
 
 # kludges kludge[,kludge]    # enable specific kludges to work around
                              # non-conforming WMs and/or stalonetray bugs.
-                             # NEW in @VERSION_STR@. Argument is a
-                             # comma-separated list of
+                             # Argument is a comma-separated list of
                              # * fix_window_pos - fix tray window position on
                              #     erroneous moves by WM
                              # * force_icons_size - ignore resize events on all
@@ -84,25 +81,26 @@ max_geometry 0x0
 no_shrink false
 
 # parent_bg [<bool>]         # whether to use pseudo-transparency
-                             # (looks better when reparented into smth like FvwmButtons)
+                             # (looks better when reparented into smth like
+                             #   FvwmButtons)
 parent_bg false
 
-# pixmap_bg <path_to_xpm>    # use pixmap from specified xpm file for (tiled) background
+# pixmap_bg <path_to_xpm>    # use pixmap from specified xpm file for (tiled)
+                             # background
 # pixmap_bg /home/user/.stalonetraybg.xpm
 
 # scrollbars <mode>          # enable/disable scrollbars; mode is either
                              # vertical, horizontal, all or none (default)
-                             # NEW in @VERSION_STR@.
 scrollbars none
 
-# scrollbars-size <size>     # scrollbars step in pixels; default is slot_size / 4
+# scrollbars-size <size>     # scrollbars step in pixels; default is slot_size/4
 # scrollbars-step 8
 
-# scrollbars-step <step>     # scrollbars step in pixels; default is slot_size / 2
+# scrollbars-step <step>     # scrollbars step in pixels; default is slot_size/2
 # scrollbars-step 32
 
 # slot_size <int>            # specifies size of icon slot, defaults to
-                             # icon_size NEW in @VERSION_STR@.
+                             # icon_size.
 
 # skip_taskbar [<bool>]      # hide tray`s window from the taskbar
 skip_taskbar true
@@ -119,7 +117,8 @@ tint_color white
 tint_level 0
 
 # transparent [<bool>]       # whether to use root-transparency (background
-                             # image must be set with Esetroot or compatible utility)
+                             # image must be set with Esetroot or compatible
+                             # utility)
 transparent false
 
 # vertical [<bool>]          # whether to use vertical layout (horisontal layout
@@ -132,15 +131,15 @@ window_layer normal
 
 # window_strut <mode>        # enable/disable window struts for tray window (to
                              # avoid converting of tray window by maximized
-                             # windows); mode defines to which screen border tray
-                             # will be attached; it can be either top, bottom,
-                             # left, right, none or auto (default)
+                             # windows); mode defines to which screen border
+                             # tray will be attached; it can be either top,
+                             # bottom, left, right, none or auto (default)
 window_strut auto
 
 # window_type <type>         # set the EWMH-compatible window type; one of:
                              # desktop, dock, normal, toolbar, utility
 window_type dock
 
-# xsync [<bool>]             # whether to operate on X server synchronously (SLOOOOW)
+# xsync [<bool>]             # whether to operate on X server synchronously
+                             # (SLOOOOW)
 xsync false
-

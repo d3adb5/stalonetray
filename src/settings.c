@@ -22,8 +22,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "config.h"
-
 #include "common.h"
 #include "debug.h"
 #include "layout.h"
@@ -37,7 +35,7 @@
 /* Here we keep our filthy settings */
 struct Settings settings;
 /* Initialize data */
-void init_default_settings()
+void init_default_settings(void)
 {
     settings.bg_color_str = "gray";
     settings.tint_color_str = "white";
@@ -91,7 +89,7 @@ void init_default_settings()
     settings.confirmation_delay = 3;
 #endif
 
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     settings.monitor = 0;
 #endif
 }
@@ -102,7 +100,7 @@ void init_default_settings()
     if (!silent) LOG_ERROR(("Parsing error: " msg ", \"%s\" found\n", str));
 
 /* Parse highlight color */
-int parse_scrollbars_highlight_color(int argc, const char **argv, void **references, int silent)
+int parse_scrollbars_highlight_color(int, const char **argv, void **references, int)
 {
     char **highlight_color = (char **) references[0];
 
@@ -115,7 +113,7 @@ int parse_scrollbars_highlight_color(int argc, const char **argv, void **referen
 }
 
 /* Parse log level */
-int parse_log_level(int argc, const char **argv, void **references, int silent)
+int parse_log_level(int, const char **argv, void **references, int silent)
 {
     int *log_level = (int *) references[0];
 
@@ -135,7 +133,7 @@ int parse_log_level(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse list of ignored window classes */
-int parse_ignored_classes(int argc, const char **argv, void **references, int silent)
+int parse_ignored_classes(int argc, const char **argv, void **references, int)
 {
     struct WindowClass **classes = (struct WindowClass **) references[0];
     struct WindowClass *newclass = NULL;
@@ -151,7 +149,7 @@ int parse_ignored_classes(int argc, const char **argv, void **references, int si
 }
 
 /* Parse dockapp mode */
-int parse_dockapp_mode(int argc, const char **argv, void **references, int silent)
+int parse_dockapp_mode(int, const char **argv, void **references, int silent)
 {
     int *dockapp_mode = (int *) references[0];
 
@@ -170,7 +168,7 @@ int parse_dockapp_mode(int argc, const char **argv, void **references, int silen
 
 /* Parse gravity string ORing resulting value
  * with current value of tgt */
-int parse_gravity(int argc, const char **argv, void **references, int silent)
+int parse_gravity(int, const char **argv, void **references, int silent)
 {
     int *gravity = (int *) references[0];
     const char *gravity_s = argv[0];
@@ -203,7 +201,7 @@ fail:
 }
 
 /* Parse integer string storing resulting value in tgt */
-int parse_int(int argc, const char **argv, void **references, int silent)
+int parse_int(int, const char **argv, void **references, int silent)
 {
     int *parsed = (int *) references[0];
     char *invalid;
@@ -219,7 +217,7 @@ int parse_int(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse kludges mode */
-int parse_kludges(int argc, const char **argv, void **references, int silent)
+int parse_kludges(int, const char **argv, void **references, int silent)
 {
     const char *token = strtok((char *) argv[0], ",");
     int *kludges = (int *) references[0];
@@ -241,7 +239,7 @@ int parse_kludges(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse strut mode */
-int parse_strut_mode(int argc, const char **argv, void **references, int silent)
+int parse_strut_mode(int, const char **argv, void **references, int silent)
 {
     int *strut_mode = (int *) references[0];
 
@@ -267,7 +265,7 @@ int parse_strut_mode(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse boolean string storing result in tgt*/
-int parse_bool(int argc, const char **argv, void **references, int silent)
+int parse_bool(int, const char **argv, void **references, int silent)
 {
     const char *true_str[] = {"yes", "on", "true", "1", NULL};
     const char *false_str[] = {"no", "off", "false", "0", NULL};
@@ -305,7 +303,7 @@ int parse_bool_rev(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse window layer string storing result in tgt */
-int parse_wnd_layer(int argc, const char **argv, void **references, int silent)
+int parse_wnd_layer(int, const char **argv, void **references, int silent)
 {
     char **window_layer = (char **) references[0];
 
@@ -324,7 +322,7 @@ int parse_wnd_layer(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse window type string storing result in tgt */
-int parse_wnd_type(int argc, const char **argv, void **references, int silent)
+int parse_wnd_type(int, const char **argv, void **references, int silent)
 {
     const char **window_type = (const char **) references[0];
 
@@ -347,7 +345,7 @@ int parse_wnd_type(int argc, const char **argv, void **references, int silent)
 }
 
 /* Just copy string from arg to *tgt */
-int parse_copystr(int argc, const char **argv, void **references, int silent)
+int parse_copystr(int, const char **argv, void **references, int)
 {
     const char **stringref = (const char **) references[0];
 
@@ -359,7 +357,7 @@ int parse_copystr(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parses window decoration specification */
-int parse_deco(int argc, const char **argv, void **references, int silent)
+int parse_deco(int, const char **argv, void **references, int silent)
 {
     int *decorations = (int *) references[0];
     const char *arg = argv[0];
@@ -380,7 +378,7 @@ int parse_deco(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parses window decoration specification */
-int parse_sb_mode(int argc, const char **argv, void **references, int silent)
+int parse_sb_mode(int, const char **argv, void **references, int silent)
 {
     int *sb_mode = (int *) references[0];
 
@@ -447,7 +445,7 @@ int parse_remote(char *str, void **tgt, int silent)
 }
 #endif
 
-int parse_remote_click_type(int argc, const char **argv, void **references, int silent)
+int parse_remote_click_type(int, const char **argv, void **references, int silent)
 {
     int *remote_click_type = (int *) references[0];
 
@@ -463,7 +461,7 @@ int parse_remote_click_type(int argc, const char **argv, void **references, int 
     return SUCCESS;
 }
 
-int parse_pos(int argc, const char **argv, void **references, int silent)
+int parse_pos(int, const char **argv, void **references, int)
 {
     struct Point *pos = (struct Point *) references[0];
     unsigned int dummy;
@@ -471,7 +469,7 @@ int parse_pos(int argc, const char **argv, void **references, int silent)
     return SUCCESS;
 }
 
-int parse_size(int argc, const char **argv, void **references, int silent)
+int parse_size(int, const char **argv, void **references, int)
 {
     struct Point *size = (struct Point *) references[0];
     unsigned int width, height;
@@ -484,11 +482,8 @@ int parse_size(int argc, const char **argv, void **references, int silent)
     if ((bitmask & HeightValue) == 0)
         height = width;
 
-    val_range(width, 0, INT_MAX);
-    val_range(height, 0, INT_MAX);
-
-    size->x = width;
-    size->y = height;
+    size->x = (width > (unsigned int) INT_MAX) ? INT_MAX : (int) width;
+    size->y = (height > (unsigned int) INT_MAX) ? INT_MAX : (int) height;
 
     return SUCCESS;
 }
@@ -744,7 +739,7 @@ struct Param params[] = {
 
         .parser = (param_parser_t) &parse_copystr
     },
-#ifdef XINERAMA_SUPPORTED
+#ifdef _ST_WITH_XINERAMA
     {
         .short_name = "-m",
         .long_name = "--monitor",
@@ -1166,7 +1161,7 @@ struct Param params[] = {
     },
 #endif
 
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
     {
         .short_name = NULL,
         .long_name = "--pixmap-bg",
@@ -1189,14 +1184,15 @@ struct Param params[] = {
 void usage(char *progname)
 {
     printf("\nstalonetray " VERSION " [ " FEATURE_LIST " ]\n");
-    printf("\nUsage: %s [options...]\n", progname);
     printf(
+        "\nUsage: %s [options...]\n"
         "\n"
         "For short options argument can be specified as -o value or -ovalue.\n"
         "For long options argument can be specified as --option value or\n"
         "--option=value. All flag-options have expilicit optional boolean \n"
         "argument, which can be true (1, yes) or false (0, no).\n"
-        "\n"
+        "\n", progname);
+    printf(
         "Possible options are:\n"
         "    -display <display>          use X display <display>\n"
         "    -bg, --background <color>   select background color (default: "
@@ -1234,6 +1230,8 @@ void usage(char *progname)
         "   --ignore-classes <classes>   ignore tray icons in xembed if the "
         "tray window has one of the given classes, separated by commas\n"
         "    -h, --help                  show this message\n"
+        );
+    printf(
 #ifdef DEBUG
         "    --log-level <level>         set the level of output to either "
         "err\n"
@@ -1322,7 +1320,7 @@ void usage(char *progname)
 int parse_cmdline(int argc, char **argv, int pass)
 {
     struct Param *p, *match;
-    char *arg, *progname = argv[0];
+    char *progname = argv[0];
     const char **p_argv = NULL, *argbuf[MAX_DEFAULT_ARGS];
     int p_argc;
 
@@ -1514,7 +1512,7 @@ char *find_rc(const char *path_part1, const char *path_part2, const char *rc)
             path_part2, rc);
     }
 
-    if (len < 0 || len >= sizeof(full_path)) return NULL;
+    if (len < 0 || (size_t) len >= sizeof(full_path)) return NULL;
     if (stat(full_path, &statbuf) != 0) return NULL;
 
     return full_path;
@@ -1523,9 +1521,8 @@ char *find_rc(const char *path_part1, const char *path_part2, const char *rc)
 #define READ_BUF_SZ 512
 /* Parses rc file (path is either taken from settings.config_fname
  * or ~/.stalonetrayrc is used) */
-void parse_rc()
+void parse_rc(void)
 {
-    char *home_dir;
     FILE *cfg;
 
     char buf[READ_BUF_SZ + 1];
@@ -1630,13 +1627,12 @@ void parse_rc()
 }
 
 /* Interpret all settings that need an open display or other settings */
-void interpret_settings()
+void interpret_settings(void)
 {
     static int gravity_matrix[11] = {ForgetGravity, EastGravity, WestGravity,
         ForgetGravity, SouthGravity, SouthEastGravity, SouthWestGravity,
         ForgetGravity, NorthGravity, NorthEastGravity, NorthWestGravity};
     int geom_flags;
-    int rc;
     int dummy;
     XWindowAttributes root_wa;
     /* Sanitize icon size */
@@ -1657,7 +1653,7 @@ void interpret_settings()
     settings.win_gravity = gravity_matrix[settings.grow_gravity];
     settings.bit_gravity = gravity_matrix[settings.icon_gravity];
     /* Parse all background-related settings */
-#ifdef XPM_SUPPORTED
+#ifdef _ST_WITH_XPM
     settings.pixmap_bg = (settings.bg_pmap_path != NULL);
 #endif
     if (settings.pixmap_bg) {

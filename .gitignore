@@ -15,6 +15,9 @@ Makefile
 /src/config.h
 /src/stamp-h1
 
+/build/
+/.cache/
+
 # Build artifacts
 /src/*.o
 /stalonetray.xml
@@ -23,4 +26,3 @@ Makefile
 /src/stalonetray
 /stalonetray.1
 /stalonetray.html
-/stalonetrayrc.sample
