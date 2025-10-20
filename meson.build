@@ -99,3 +99,11 @@ custom_target(
   install: true,
   install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man1'),
 )
+
+# == Sample Configuration ======================================================
+
+install_data(
+  'stalonetrayrc.sample',
+  install_dir: get_option('sysconfdir'),
+  rename: ['stalonetrayrc'],
+)
