@@ -88,11 +88,11 @@ executable(
 
 # == Documentation =============================================================
 
-buildman = find_program('buildman.sh')
+gen_manpage = find_program('generate-manpage.sh')
 
 custom_target(
   'manpage',
   input: 'stalonetray.xml.in',
   output: 'stalonetray.1',
-  command: [buildman, '@INPUT@', '@OUTPUT@', meson.project_version()],
+  command: [gen_manpage, '@INPUT@', '@OUTPUT@', meson.project_version()],
 )

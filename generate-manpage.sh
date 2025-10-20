@@ -10,7 +10,7 @@
 # Plenty of the logic was viable within Meson, but was moved here to simplify
 # the meson.build file.
 #
-# Usage: ./buildman.sh template output stalonetray-version
+# Usage: ./generate-manpage.sh template output stalonetray-version
 #
 # Requires: sed, xsltproc
 #
