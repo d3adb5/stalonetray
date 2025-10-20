@@ -34,26 +34,26 @@ void xinerama_update_geometry(void)
 #ifdef _ST_WITH_XINERAMA
     XineramaScreenInfo chosen_monitor;
     unsigned int dummy;
-    int x, y;
+    int x, y, flags;
 
     if (!tray_data.xinerama_active)
         return;
 
     LOG_TRACE(("Updating geometry based on chosen Xinerama monitor\n"));
 
-    XParseGeometry(settings.geometry_str, &x, &y, &dummy, &dummy);
+    flags = XParseGeometry(settings.geometry_str, &x, &y, &dummy, &dummy);
     chosen_monitor = tray_data.monitors[settings.monitor];
 
     LOG_TRACE(("Chosen monitor %d: %dx%d+%d+%d\n", settings.monitor,
         chosen_monitor.width, chosen_monitor.height, chosen_monitor.x_org,
         chosen_monitor.y_org));
 
-    if (x < 0)
+    if (x < 0 || flags & XNegative)
         tray_data.xsh.x = chosen_monitor.x_org + chosen_monitor.width + x - tray_data.xsh.width;
     else
         tray_data.xsh.x = chosen_monitor.x_org + x;
 
-    if (y < 0)
+    if (y < 0 || flags & YNegative)
         tray_data.xsh.y = chosen_monitor.y_org + chosen_monitor.height + y - tray_data.xsh.height;
     else
         tray_data.xsh.y = chosen_monitor.y_org + y;
