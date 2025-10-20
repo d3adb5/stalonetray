@@ -1,7 +1,9 @@
-# STAnd aLONE TRAY [![Build][ci-badge]][ci-workflow]
+# STAnd aLONE TRAY [![Build][badge-build]][yaml-build] [![Lint][badge-lint]][yaml-lint]
 
-[ci-badge]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml/badge.svg
-[ci-workflow]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml
+[badge-build]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml/badge.svg
+[yaml-build]: https://github.com/d3adb5/stalonetray/actions/workflows/build.yml
+[badge-lint]: https://github.com/d3adb5/stalonetray/actions/workflows/lint.yml/badge.svg
+[yaml-lint]: https://github.com/d3adb5/stalonetray/actions/workflows/lint.yml
 
 ## Maintenance status
 
