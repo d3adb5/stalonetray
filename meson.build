@@ -84,6 +84,7 @@ executable(
   project_sources,
   c_args: build_args,
   dependencies: _dependencies,
+  install: true,
 )
 
 # == Documentation =============================================================
@@ -95,4 +96,6 @@ custom_target(
   input: 'stalonetray.xml.in',
   output: 'stalonetray.1',
   command: [gen_manpage, '@INPUT@', '@OUTPUT@', meson.project_version()],
+  install: true,
+  install_dir: join_paths(get_option('prefix'), get_option('mandir'), 'man1'),
 )
