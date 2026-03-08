@@ -359,21 +359,54 @@ void find_unmanaged_chromium_icons()
 
 /* Scan all top-level windows for _XEMBED_INFO and try to embed those found.
  * This recovers tray icons that did not re-request docking after stalonetray
- * was restarted (e.g. because the app missed the MANAGER broadcast). */
+ * was restarted (e.g. because the app missed the MANAGER broadcast).
+ *
+ * Two filters are applied (mirroring kde_tray_init()):
+ *   1. Only run when a previous tray manager existed; on a fresh start every
+ *      tray client will respond to the MANAGER broadcast on its own.
+ *   2. Skip windows listed in _NET_CLIENT_LIST: those are regular
+ *      WM-managed windows, not tray icons. */
 void find_unmanaged_icons()
 {
-    unsigned int n, i;
+    unsigned int n, i, j;
     Window *topwins, dummy;
-    unsigned long nitems;
+    Window *client_wins = NULL;
+    unsigned long nitems, nclient_wins = 0;
     unsigned char *xembed_info;
     int rc;
+    Atom xa_net_client_list;
+
+    /* Only attempt to recover icons when there was a previous tray manager.
+     * On a fresh start all tray clients respond to the MANAGER broadcast. */
+    if (tray_data.old_selection_owner == None) return;
 
     if (!XQueryTree(tray_data.dpy, DefaultRootWindow(tray_data.dpy), &dummy,
             &dummy, &topwins, &n))
         return;
     if (topwins == NULL) return;
 
+    /* Build a list of WM-managed windows to use as an exclusion filter.
+     * Any window in _NET_CLIENT_LIST is a normal application window and
+     * must not be treated as a tray icon.
+     * Use True for only_if_exists: if the atom (and thus the property)
+     * doesn't exist the WM is not EWMH-compliant and we proceed without
+     * the filter rather than creating the atom unnecessarily. */
+    xa_net_client_list = XInternAtom(tray_data.dpy, "_NET_CLIENT_LIST", True);
+    if (xa_net_client_list != None)
+        x11_get_root_winlist_prop(tray_data.dpy, xa_net_client_list,
+            (unsigned char **)&client_wins, &nclient_wins);
+
     for (i = 0; i < n; i++) {
+        /* Skip windows that are managed by the WM */
+        int is_wm_managed = False;
+        for (j = 0; j < nclient_wins; j++) {
+            if (client_wins[j] == topwins[i]) {
+                is_wm_managed = True;
+                break;
+            }
+        }
+        if (is_wm_managed) continue;
+
         xembed_info = NULL;
         nitems = 0;
         rc = x11_get_window_prop32(tray_data.dpy, topwins[i],
@@ -387,6 +420,7 @@ void find_unmanaged_icons()
         add_icon(topwins[i], CM_FDO);
     }
 
+    if (client_wins != NULL) XFree(client_wins);
     XFree(topwins);
 }
 
