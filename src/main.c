@@ -357,6 +357,39 @@ void find_unmanaged_chromium_icons()
     XFree(topwins);
 }
 
+/* Scan all top-level windows for _XEMBED_INFO and try to embed those found.
+ * This recovers tray icons that did not re-request docking after stalonetray
+ * was restarted (e.g. because the app missed the MANAGER broadcast). */
+void find_unmanaged_icons()
+{
+    unsigned int n, i;
+    Window *topwins, dummy;
+    unsigned long nitems;
+    unsigned char *xembed_info;
+    int rc;
+
+    if (!XQueryTree(tray_data.dpy, DefaultRootWindow(tray_data.dpy), &dummy,
+            &dummy, &topwins, &n))
+        return;
+    if (topwins == NULL) return;
+
+    for (i = 0; i < n; i++) {
+        xembed_info = NULL;
+        nitems = 0;
+        rc = x11_get_window_prop32(tray_data.dpy, topwins[i],
+            tray_data.xembed_data.xa_xembed_info,
+            tray_data.xembed_data.xa_xembed_info,
+            &xembed_info, &nitems);
+        if (rc != SUCCESS) continue;
+        if (xembed_info != NULL) XFree(xembed_info);
+        LOG_TRACE(("Found potential unmanaged icon 0x%lx with _XEMBED_INFO\n",
+            topwins[i]));
+        add_icon(topwins[i], CM_FDO);
+    }
+
+    XFree(topwins);
+}
+
 #define PT_MASK_SB (1L << 0)
 #define PT_MASK_ALL PT_MASK_SB
 
@@ -793,6 +826,7 @@ int tray_main(int argc, char **argv)
     kde_icons_update();
 #endif
     find_unmanaged_chromium_icons();
+    find_unmanaged_icons();
     /* Main event loop */
     while ("my guitar gently wheeps") {
         /* This is ugly and extra dependency. But who cares?
