@@ -361,11 +361,15 @@ void find_unmanaged_chromium_icons()
  * This recovers tray icons that did not re-request docking after stalonetray
  * was restarted (e.g. because the app missed the MANAGER broadcast).
  *
- * Two filters are applied (mirroring kde_tray_init()):
+ * Three filters guard against embedding regular application windows:
  *   1. Only run when a previous tray manager existed; on a fresh start every
  *      tray client will respond to the MANAGER broadcast on its own.
- *   2. Skip windows listed in _NET_CLIENT_LIST: those are regular
- *      WM-managed windows, not tray icons. */
+ *   2. (ICCCM) Skip any window whose WM_STATE property shows it is actively
+ *      managed: NormalState (1) or IconicState (3).  System tray icons live
+ *      in WithdrawnState (0) and are not managed by the WM.  This works with
+ *      every ICCCM-compliant WM, including non-EWMH tiling WMs.
+ *   3. (EWMH) Skip any window listed in _NET_CLIENT_LIST.  This supplements
+ *      filter 2 for EWMH-compliant WMs. */
 void find_unmanaged_icons()
 {
     unsigned int n, i, j;
@@ -375,6 +379,7 @@ void find_unmanaged_icons()
     unsigned char *xembed_info;
     int rc;
     Atom xa_net_client_list;
+    Atom xa_wm_state;
 
     /* Only attempt to recover icons when there was a previous tray manager.
      * On a fresh start all tray clients respond to the MANAGER broadcast. */
@@ -385,19 +390,19 @@ void find_unmanaged_icons()
         return;
     if (topwins == NULL) return;
 
-    /* Build a list of WM-managed windows to use as an exclusion filter.
-     * Any window in _NET_CLIENT_LIST is a normal application window and
-     * must not be treated as a tray icon.
-     * Use True for only_if_exists: if the atom (and thus the property)
-     * doesn't exist the WM is not EWMH-compliant and we proceed without
-     * the filter rather than creating the atom unnecessarily. */
+    /* EWMH filter: build a list of WM-managed windows.
+     * Use True for only_if_exists so we don't create the atom on WMs that
+     * don't support _NET_CLIENT_LIST; those WMs will rely on filter 2. */
     xa_net_client_list = XInternAtom(tray_data.dpy, "_NET_CLIENT_LIST", True);
     if (xa_net_client_list != None)
         x11_get_root_winlist_prop(tray_data.dpy, xa_net_client_list,
             (unsigned char **)&client_wins, &nclient_wins);
 
+    /* ICCCM WM_STATE atom — intern once before the loop. */
+    xa_wm_state = XInternAtom(tray_data.dpy, "WM_STATE", True);
+
     for (i = 0; i < n; i++) {
-        /* Skip windows that are managed by the WM */
+        /* Filter 3: skip windows in _NET_CLIENT_LIST */
         int is_wm_managed = False;
         for (j = 0; j < nclient_wins; j++) {
             if (client_wins[j] == topwins[i]) {
@@ -406,6 +411,22 @@ void find_unmanaged_icons()
             }
         }
         if (is_wm_managed) continue;
+
+        /* Filter 2: skip windows whose WM_STATE is NormalState or IconicState.
+         * System tray icons must be in WithdrawnState (0); the WM must not
+         * manage them.  A missing WM_STATE also means unmanaged, so we let
+         * those through. */
+        if (xa_wm_state != None) {
+            unsigned char *wm_state_data = NULL;
+            unsigned long wm_state_len = 0;
+            rc = x11_get_window_prop32(tray_data.dpy, topwins[i],
+                xa_wm_state, xa_wm_state, &wm_state_data, &wm_state_len);
+            if (rc == SUCCESS && wm_state_data != NULL) {
+                long wm_state = ((long *)wm_state_data)[0];
+                XFree(wm_state_data);
+                if (wm_state != WithdrawnState) continue;
+            }
+        }
 
         xembed_info = NULL;
         nitems = 0;
