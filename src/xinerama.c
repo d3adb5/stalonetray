@@ -34,7 +34,7 @@ void xinerama_update_geometry(void)
 #ifdef _ST_WITH_XINERAMA
     XineramaScreenInfo chosen_monitor;
     unsigned int dummy;
-    int x, y, flags;
+    int x = 0, y = 0, flags;
 
     if (!tray_data.xinerama_active)
         return;
@@ -48,15 +48,13 @@ void xinerama_update_geometry(void)
         chosen_monitor.width, chosen_monitor.height, chosen_monitor.x_org,
         chosen_monitor.y_org));
 
-    if (x < 0 || flags & XNegative)
-        tray_data.xsh.x = chosen_monitor.x_org + chosen_monitor.width + x - tray_data.xsh.width;
-    else
-        tray_data.xsh.x = chosen_monitor.x_org + x;
+    if (flags & XValue && flags & XNegative)
+        x += chosen_monitor.width - tray_data.xsh.width;
+    if (flags & YValue && flags & YNegative)
+        y += chosen_monitor.height - tray_data.xsh.height;
 
-    if (y < 0 || flags & YNegative)
-        tray_data.xsh.y = chosen_monitor.y_org + chosen_monitor.height + y - tray_data.xsh.height;
-    else
-        tray_data.xsh.y = chosen_monitor.y_org + y;
+    tray_data.xsh.x = chosen_monitor.x_org + x;
+    tray_data.xsh.y = chosen_monitor.y_org + y;
 
     LOG_TRACE(("New tray position (x,y): %d,%d\n", tray_data.xsh.x, tray_data.xsh.y));
 #else
