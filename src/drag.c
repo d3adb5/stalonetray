@@ -22,6 +22,7 @@
 #include "layout.h"
 #include "settings.h"
 #include "tray.h"
+#include "xutils.h"
 
 /* Locks that may be combined with the user-chosen modifier and that we must
  * grab for explicitly, since XGrabButton matches modifier masks exactly.
@@ -41,15 +42,15 @@ static struct {
     int anchor_root_x, anchor_root_y;
     /* src->l.icn_rect position when the drag started (tray-relative). */
     int anchor_icn_x, anchor_icn_y;
-    /* The icon whose slot src has most recently been spliced past; debounces
-     * the splice so we don't thrash the list on every motion event. */
-    struct TrayIcon *last_target;
     Cursor cursor;
+    /* Marker showing the slot src will drop into. */
+    Window indicator;
 } drag_state;
 
 static struct TrayIcon *drag_pick_target(int tray_x, int tray_y);
 static int drag_pick_target_cbk(struct TrayIcon *ti);
 static void drag_follow_cursor(int root_x, int root_y);
+static void drag_update_indicator(void);
 static void drag_finish(void);
 
 /* Closure for drag_pick_target. */
@@ -59,12 +60,19 @@ static struct {
 
 void drag_init(void)
 {
+    XColor color;
     drag_state.active = 0;
     drag_state.src = NULL;
-    drag_state.last_target = NULL;
     drag_state.cursor = None;
-    if (settings.drag_reorder)
-        drag_state.cursor = XCreateFontCursor(tray_data.dpy, XC_fleur);
+    drag_state.indicator = None;
+    if (!settings.drag_reorder) return;
+    drag_state.cursor = XCreateFontCursor(tray_data.dpy, XC_fleur);
+    /* A lightweight always-allocated marker window, shown only while dragging.
+     * It is sized and positioned per-drag in drag_update_indicator(). */
+    if (!x11_parse_color(tray_data.dpy, "gold", &color))
+        x11_parse_color(tray_data.dpy, "yellow", &color);
+    drag_state.indicator = XCreateSimpleWindow(tray_data.dpy, tray_data.tray,
+        0, 0, 1, 1, 0, color.pixel, color.pixel);
 }
 
 void drag_install_grab(struct TrayIcon *ti)
@@ -93,8 +101,9 @@ void drag_forget_icon(struct TrayIcon *ti)
     if (drag_state.src == ti) {
         drag_state.active = 0;
         drag_state.src = NULL;
+        if (drag_state.indicator != None)
+            XUnmapWindow(tray_data.dpy, drag_state.indicator);
     }
-    if (drag_state.last_target == ti) drag_state.last_target = NULL;
 }
 
 void drag_handle_event(XEvent ev)
@@ -114,13 +123,18 @@ void drag_handle_event(XEvent ev)
         if (ti == NULL || !ti->is_visible || !ti->is_layed_out) break;
         drag_state.active = 1;
         drag_state.src = ti;
-        drag_state.last_target = NULL;
         drag_state.anchor_root_x = ev.xbutton.x_root;
         drag_state.anchor_root_y = ev.xbutton.y_root;
         drag_state.anchor_icn_x = ti->l.icn_rect.x;
         drag_state.anchor_icn_y = ti->l.icn_rect.y;
-        /* Float above peers for the duration of the drag. The mid-parent is
-         * restored to its lowered position in drag_finish(). */
+        /* Show the landing marker, then float the icon above everything (incl.
+         * the marker). Moves during the drag don't restack, so this ordering
+         * holds for the whole gesture. */
+        drag_update_indicator();
+        if (drag_state.indicator != None) {
+            XMapWindow(tray_data.dpy, drag_state.indicator);
+            XRaiseWindow(tray_data.dpy, drag_state.indicator);
+        }
         XRaiseWindow(tray_data.dpy, ti->mid_parent);
         LOG_TRACE(("drag start: icon 0x%lx at (%d,%d)\n", ti->wid,
             ti->l.icn_rect.x, ti->l.icn_rect.y));
@@ -134,7 +148,6 @@ void drag_handle_event(XEvent ev)
         tray_y = ev.xmotion.y_root - tray_data.xsh.y;
         target = drag_pick_target(tray_x, tray_y);
         if (target == NULL || target == drag_state.src) break;
-        if (target == drag_state.last_target) break;
         /* Decide whether src lands before or after target by comparing the
          * pointer to the target's midpoint along the major axis. */
         {
@@ -150,10 +163,15 @@ void drag_handle_event(XEvent ev)
              * splicing past the tail moves src to the end. */
             before = past_mid ? target->next : target;
             if (before == drag_state.src) before = before->next;
+            /* Debounce on the resulting position, not on target identity:
+             * src is already where it belongs when its successor is `before`.
+             * This lets crossing a neighbour's midpoint re-trigger the splice
+             * without first leaving that neighbour's rect. */
+            if (drag_state.src->next == before) break;
             icon_list_move_before(drag_state.src, before);
         }
-        drag_state.last_target = target;
         layout_relayout_in_list_order();
+        drag_update_indicator();
         /* Non-forced: only icons whose slot actually moved get repositioned,
          * which keeps the rest of the tray from flickering on each shuffle. */
         embedder_update_positions(False);
@@ -201,13 +219,29 @@ static void drag_follow_cursor(int root_x, int root_y)
         new_icn_x + inner_x, new_icn_y + inner_y);
 }
 
+/* Size and position the landing marker to mirror src's reserved slot. The
+ * slot is read from src->l.icn_rect, which the relayout keeps pointing at
+ * where src will drop (even though mid_parent is off following the cursor). */
+static void drag_update_indicator(void)
+{
+    struct TrayIcon *ti = drag_state.src;
+    int inner_x, inner_y;
+    if (drag_state.indicator == None || ti == NULL) return;
+    inner_x = (ti->l.icn_rect.w - ti->l.wnd_sz.x) / 2;
+    inner_y = (ti->l.icn_rect.h - ti->l.wnd_sz.y) / 2;
+    XMoveResizeWindow(tray_data.dpy, drag_state.indicator,
+        ti->l.icn_rect.x + inner_x, ti->l.icn_rect.y + inner_y,
+        ti->l.wnd_sz.x, ti->l.wnd_sz.y);
+}
+
 static void drag_finish(void)
 {
     struct TrayIcon *src = drag_state.src;
     LOG_TRACE(("drag end: icon 0x%lx\n", src ? src->wid : None));
+    if (drag_state.indicator != None)
+        XUnmapWindow(tray_data.dpy, drag_state.indicator);
     drag_state.active = 0;
     drag_state.src = NULL;
-    drag_state.last_target = NULL;
     /* mid_parent has been tracking the cursor; mark it dirty so the embedder
      * snaps it back to its slot, while peers (already in place) stay put. */
     if (src != NULL) src->is_updated = True;
