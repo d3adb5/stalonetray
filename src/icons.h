@@ -52,6 +52,8 @@ struct TrayIcon {
     struct Layout l; /* Layout info */
 };
 
+extern struct TrayIcon *icons_head;
+
 /* Typedef for comparison function */
 typedef int (*IconCmpFunc)(struct TrayIcon *, struct TrayIcon *);
 
@@ -113,5 +115,11 @@ struct TrayIcon *icon_list_find(Window w);
 
 /* Find the icon with wid == w or parent wid == w */
 struct TrayIcon *icon_list_find_ex(Window w);
+
+/* Find the icon whose mid_parent == w */
+struct TrayIcon *icon_list_find_by_mid_parent(Window w);
+
+/* Splice ti before target in the list; if target is NULL, splice to the end */
+void icon_list_move_before(struct TrayIcon *ti, struct TrayIcon *target);
 
 #endif

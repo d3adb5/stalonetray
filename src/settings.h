@@ -39,6 +39,8 @@ struct Settings {
     int dockapp_mode; /* Activate dockapp mode */
     int kludge_flags; /* What kludges to activate */
     int scroll_everywhere; /* Whether scrolling is limited to the scrollbars only */
+    int drag_reorder; /* Allow dragging icons to reorder them */
+    unsigned int drag_modifier; /* X11 modifier mask gating the drag (e.g. Mod1Mask) */
 
     int need_help; /* Print usage and exit */
 

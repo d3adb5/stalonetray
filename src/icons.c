@@ -159,6 +159,44 @@ struct TrayIcon *icon_list_find_ex(Window wid)
     return NULL;
 }
 
+struct TrayIcon *icon_list_find_by_mid_parent(Window wid)
+{
+    struct TrayIcon *tmp;
+    if (wid == None) return NULL;
+    for (tmp = icons_head; tmp != NULL; tmp = tmp->next)
+        if (tmp->mid_parent == wid) return tmp;
+    return NULL;
+}
+
+void icon_list_move_before(struct TrayIcon *ti, struct TrayIcon *target)
+{
+    struct TrayIcon *tail;
+    if (ti == NULL || ti == target) return;
+    LIST_DEL_ITEM(icons_head, ti);
+    /* LIST_INSERT_AFTER in list.h skips fixing up i->next->prev when
+     * inserting in the middle of the list, so we splice by hand to keep both
+     * directions consistent. */
+    if (target != NULL) {
+        ti->prev = target->prev;
+        ti->next = target;
+        if (target->prev != NULL)
+            target->prev->next = ti;
+        else
+            icons_head = ti;
+        target->prev = ti;
+    } else if (icons_head == NULL) {
+        ti->prev = NULL;
+        ti->next = NULL;
+        icons_head = ti;
+    } else {
+        for (tail = icons_head; tail->next != NULL; tail = tail->next)
+            ;
+        ti->prev = tail;
+        ti->next = NULL;
+        tail->next = ti;
+    }
+}
+
 int icon_list_clean()
 {
     struct TrayIcon *tmp;

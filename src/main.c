@@ -22,6 +22,7 @@
 
 #include "common.h"
 #include "debug.h"
+#include "drag.h"
 #include "embed.h"
 #include "icons.h"
 #include "layout.h"
@@ -222,6 +223,7 @@ void remove_icon(Window w)
     /* Ignore false alarms */
     if ((ti = icon_list_find(w)) == NULL) return;
     dump_tray_status();
+    drag_forget_icon(ti);
     embedder_unembed(ti);
     xembed_unembed(ti);
     layout_remove(ti);
@@ -789,6 +791,7 @@ int tray_main(int argc, char **argv)
     kde_tray_init(tray_data.dpy);
 #endif
     xembed_init();
+    drag_init();
 #ifdef _ST_WITH_NATIVE_KDE
     kde_icons_update();
 #endif
@@ -808,6 +811,7 @@ int tray_main(int argc, char **argv)
             XNextEvent(tray_data.dpy, &ev);
             xembed_handle_event(ev);
             scrollbars_handle_event(ev);
+            drag_handle_event(ev);
             switch (ev.type) {
             case VisibilityNotify:
                 LOG_TRACE(("VisibilityNotify (0x%lx, state=%d)\n",

@@ -371,6 +371,27 @@
   </varlistentry>
 
   <varlistentry>
+  <term><option>--drag-reorder</option> <optional><replaceable>bool</replaceable></optional></term>
+  <term><option>drag_reorder</option> <optional><replaceable>bool</replaceable></optional></term>
+  <listitem><para>Allow reordering icons by holding the drag modifier and
+  dragging them with the left mouse button. Default value:
+  <userinput>true</userinput>.
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term><option>--drag-modifier</option> <replaceable>mod</replaceable></term>
+  <term><option>drag_modifier</option> <replaceable>mod</replaceable></term>
+  <listitem><para>Keyboard modifier that must be held to start a drag.
+  Accepted values: <userinput>alt</userinput>, <userinput>shift</userinput>,
+  <userinput>ctrl</userinput>, <userinput>super</userinput>, or
+  <userinput>none</userinput>. Default value: <userinput>alt</userinput>.
+  Setting this to <userinput>none</userinput> lets any Button1 drag start
+  a reorder, which will also fire a click on the icon.
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
   <term><option>--skip-taskbar</option></term>
   <term><option>skip_taskbar</option> <optional><replaceable>bool</replaceable></optional></term>
   <listitem><para>Hide tray`s window from the taskbar. Default value:
