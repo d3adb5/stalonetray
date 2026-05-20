@@ -392,6 +392,38 @@
   </varlistentry>
 
   <varlistentry>
+  <term><option>--remember-icon-order</option> <optional><replaceable>bool</replaceable></optional></term>
+  <term><option>remember_icon_order</option> <optional><replaceable>bool</replaceable></optional></term>
+  <listitem><para>Persist the icon order across tray restarts. On startup the
+  previous order is restored as icons redock; applications that are no longer
+  running are dropped, and icons that appear afterwards follow the tray's
+  gravity. The order is keyed by <option>WM_CLASS</option> (window ids are not
+  stable across a restart), with <option>_NET_WM_PID</option> distinguishing
+  several icons that share a class, and tied to the current X session, so it is
+  discarded after a full X restart.
+  Default value: <userinput>true</userinput>.
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term><option>--icon-order-file</option> <replaceable>path</replaceable></term>
+  <term><option>icon_order_file</option> <replaceable>path</replaceable></term>
+  <listitem><para>Path to the icon order state file. Defaults to
+  <filename>$XDG_STATE_HOME/stalonetray/order-<replaceable>screen</replaceable></filename>
+  (falling back to <filename>~/.local/state/stalonetray/</filename>).
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
+  <term><option>--icon-order-timeout</option> <replaceable>n</replaceable></term>
+  <term><option>icon_order_timeout</option> <replaceable>n</replaceable></term>
+  <listitem><para>Seconds to wait at startup for icons to redock before
+  settling on the restored order. The wait ends early once every remembered
+  icon has returned. Default value: <userinput>10</userinput>.
+  </para></listitem>
+  </varlistentry>
+
+  <varlistentry>
   <term><option>--skip-taskbar</option></term>
   <term><option>skip_taskbar</option> <optional><replaceable>bool</replaceable></optional></term>
   <listitem><para>Hide tray`s window from the taskbar. Default value:

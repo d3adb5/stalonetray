@@ -20,6 +20,7 @@
 #include "embed.h"
 #include "icons.h"
 #include "layout.h"
+#include "order.h"
 #include "settings.h"
 #include "tray.h"
 #include "xutils.h"
@@ -250,5 +251,6 @@ static void drag_finish(void)
     if (src != NULL && src->mid_parent != None)
         XLowerWindow(tray_data.dpy, src->mid_parent);
     tray_update_window_props();
+    order_save();
 }
 

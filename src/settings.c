@@ -87,6 +87,9 @@ void init_default_settings(void)
     settings.scroll_everywhere = 0;
     settings.drag_reorder = 1;
     settings.drag_modifier = Mod1Mask;
+    settings.remember_icon_order = 1;
+    settings.icon_order_file = NULL;
+    settings.icon_order_timeout = 10;
 #ifdef DELAY_EMBEDDING_CONFIRMATION
     settings.confirmation_delay = 3;
 #endif
@@ -990,6 +993,54 @@ struct Param params[] = {
     },
     {
         .short_name = NULL,
+        .long_name = "--remember-icon-order",
+        .rc_name = "remember_icon_order",
+        .references = { (void *) &settings.remember_icon_order },
+
+        .pass = 1,
+
+        .min_argc = 0,
+        .max_argc = 1,
+
+        .default_argc = 1,
+        .default_argv = {"true"},
+
+        .parser = (param_parser_t) &parse_bool
+    },
+    {
+        .short_name = NULL,
+        .long_name = "--icon-order-file",
+        .rc_name = "icon_order_file",
+        .references = { (void *) &settings.icon_order_file },
+
+        .pass = 1,
+
+        .min_argc = 1,
+        .max_argc = 1,
+
+        .default_argc = 0,
+        .default_argv = NULL,
+
+        .parser = (param_parser_t) &parse_copystr
+    },
+    {
+        .short_name = NULL,
+        .long_name = "--icon-order-timeout",
+        .rc_name = "icon_order_timeout",
+        .references = { (void *) &settings.icon_order_timeout },
+
+        .pass = 1,
+
+        .min_argc = 1,
+        .max_argc = 1,
+
+        .default_argc = 0,
+        .default_argv = NULL,
+
+        .parser = (param_parser_t) &parse_int
+    },
+    {
+        .short_name = NULL,
         .long_name = "--skip-taskbar",
         .rc_name = "skip_taskbar",
         .references = { (void *) &settings.skip_taskbar },
@@ -1346,6 +1397,12 @@ void usage(char *progname)
         "    --drag-reorder [<bool>]     allow dragging icons to reorder them (default: true)\n"
         "    --drag-modifier <mod>       modifier that enables drag: alt (default),\n"
         "                                shift, ctrl, super, or none\n"
+        "    --remember-icon-order [<bool>] persist icon order across tray restarts\n"
+        "                                (default: true)\n"
+        "    --icon-order-file <path>    path to the icon order state file\n"
+        "                                (default: $XDG_STATE_HOME/stalonetray/order-<screen>)\n"
+        "    --icon-order-timeout <n>    seconds to wait for icons to redock at\n"
+        "                                startup before settling (default: 10)\n"
         "    --slot-size <w>[x<h>]       set icon slot size in pixels\n"
         "                                if omitted, hight is set equal to width\n"
         "    --skip-taskbar              hide tray`s window from the taskbar\n"

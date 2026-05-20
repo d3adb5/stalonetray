@@ -41,6 +41,9 @@ struct Settings {
     int scroll_everywhere; /* Whether scrolling is limited to the scrollbars only */
     int drag_reorder; /* Allow dragging icons to reorder them */
     unsigned int drag_modifier; /* X11 modifier mask gating the drag (e.g. Mod1Mask) */
+    int remember_icon_order; /* Persist icon order across tray restarts */
+    char *icon_order_file; /* Path to the icon order state file (NULL = XDG default) */
+    int icon_order_timeout; /* Seconds to wait for icons to redock at startup */
 
     int need_help; /* Print usage and exit */
 
