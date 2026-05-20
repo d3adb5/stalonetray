@@ -85,6 +85,8 @@ void init_default_settings(void)
     settings.remote_click_pos.y = REMOTE_CLICK_POS_DEFAULT;
     settings.ignored_classes = NULL;
     settings.scroll_everywhere = 0;
+    settings.drag_reorder = 1;
+    settings.drag_modifier = Mod1Mask;
 #ifdef DELAY_EMBEDDING_CONFIRMATION
     settings.confirmation_delay = 3;
 #endif
@@ -259,6 +261,29 @@ int parse_strut_mode(int, const char **argv, void **references, int silent)
         return FAILURE;
     }
 
+    return SUCCESS;
+}
+
+/* Parse X11 modifier name (alt, shift, ctrl, super, none) into a mask. */
+int parse_modifier(int, const char **argv, void **references, int silent)
+{
+    unsigned int *mask = (unsigned int *) references[0];
+    const char *name = argv[0];
+
+    if (!strcasecmp(name, "alt") || !strcasecmp(name, "mod1"))
+        *mask = Mod1Mask;
+    else if (!strcasecmp(name, "shift"))
+        *mask = ShiftMask;
+    else if (!strcasecmp(name, "ctrl") || !strcasecmp(name, "control"))
+        *mask = ControlMask;
+    else if (!strcasecmp(name, "super") || !strcasecmp(name, "mod4"))
+        *mask = Mod4Mask;
+    else if (!strcasecmp(name, "none"))
+        *mask = 0;
+    else {
+        PARSING_ERROR("alt, shift, ctrl, super, or none expected", name);
+        return FAILURE;
+    }
     return SUCCESS;
 }
 
@@ -933,6 +958,38 @@ struct Param params[] = {
     },
     {
         .short_name = NULL,
+        .long_name = "--drag-reorder",
+        .rc_name = "drag_reorder",
+        .references = { (void *) &settings.drag_reorder },
+
+        .pass = 1,
+
+        .min_argc = 0,
+        .max_argc = 1,
+
+        .default_argc = 1,
+        .default_argv = {"true"},
+
+        .parser = (param_parser_t) &parse_bool
+    },
+    {
+        .short_name = NULL,
+        .long_name = "--drag-modifier",
+        .rc_name = "drag_modifier",
+        .references = { (void *) &settings.drag_modifier },
+
+        .pass = 1,
+
+        .min_argc = 1,
+        .max_argc = 1,
+
+        .default_argc = 0,
+        .default_argv = NULL,
+
+        .parser = (param_parser_t) &parse_modifier
+    },
+    {
+        .short_name = NULL,
         .long_name = "--skip-taskbar",
         .rc_name = "skip_taskbar",
         .references = { (void *) &settings.skip_taskbar },
@@ -1286,6 +1343,9 @@ void usage(char *progname)
         "    --scrollbars-step <n>       set scrollbar step to n pixels\n"
         "    --scrollbars-size <n>       set scrollbar size to n pixels\n"
         "    --scroll-everywhere         enable scrolling outside of the scrollbars too\n"
+        "    --drag-reorder [<bool>]     allow dragging icons to reorder them (default: true)\n"
+        "    --drag-modifier <mod>       modifier that enables drag: alt (default),\n"
+        "                                shift, ctrl, super, or none\n"
         "    --slot-size <w>[x<h>]       set icon slot size in pixels\n"
         "                                if omitted, hight is set equal to width\n"
         "    --skip-taskbar              hide tray`s window from the taskbar\n"

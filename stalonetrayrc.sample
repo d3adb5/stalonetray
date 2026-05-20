@@ -102,6 +102,13 @@ scrollbars none
 # slot_size <int>            # specifies size of icon slot, defaults to
                              # icon_size.
 
+# drag_reorder [<bool>]      # allow dragging icons to reorder them
+# drag_reorder true
+
+# drag_modifier <mod>        # modifier that enables drag: alt (default),
+#                            # shift, ctrl, super, or none
+# drag_modifier alt
+
 # skip_taskbar [<bool>]      # hide tray`s window from the taskbar
 skip_taskbar true
 

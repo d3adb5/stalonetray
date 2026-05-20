@@ -1,5 +1,6 @@
 project_sources += [
   'src/debug.c',
+  'src/drag.c',
   'src/embed.c',
   'src/icons.c',
   'src/image.c',

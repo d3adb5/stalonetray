@@ -575,3 +575,72 @@ int layout_unset_flag(struct TrayIcon *ti)
     ti->is_layed_out = 0;
     return NO_MATCH;
 }
+
+int layout_relayout_in_list_order(void)
+{
+    /* Lay icons out by walking the list and assigning sequential grid slots.
+     * grid_find_placement is intentionally bypassed: its placement search
+     * would mark every icon as updated on every call (because grid_add resets
+     * grd_rect.x to -1), which causes flicker and unnecessary X traffic
+     * during a drag. Here we set is_updated only when the slot actually moved. */
+    struct TrayIcon *ti;
+    int cur_x = 0, cur_y = 0, row_h = 0;
+    int max_x, max_y;
+
+    /* grd_rect lives in a coord system where x is the major axis (along which
+     * icons grow) and y is the minor; layout_translate_to_window swaps these
+     * for vertical trays. The max_* expressions below mirror the convention
+     * used in icon_placement_create. */
+    max_x = settings.scrollbars_mode & SB_MODE_HORZ
+        ? INT_MAX
+        : (settings.vertical ? settings.max_tray_dims.y
+                             : settings.max_tray_dims.x)
+            / settings.slot_size.x;
+    max_y = settings.scrollbars_mode & SB_MODE_VERT
+        ? INT_MAX
+        : (settings.vertical ? settings.max_tray_dims.x
+                             : settings.max_tray_dims.y)
+            / settings.slot_size.y;
+
+    grid_sz.x = 0;
+    grid_sz.y = 0;
+
+    for (ti = icons_head; ti != NULL; ti = ti->next) {
+        struct Rect old_grd;
+        int was_layed_out;
+        if (!ti->is_visible) {
+            ti->is_layed_out = 0;
+            continue;
+        }
+        old_grd = ti->l.grd_rect;
+        was_layed_out = ti->is_layed_out;
+        grid_translate_from_window(ti);
+        /* Wrap before placing if the icon wouldn't fit on the current row. */
+        if (cur_x + ti->l.grd_rect.w > max_x) {
+            cur_x = 0;
+            cur_y += row_h > 0 ? row_h : 1;
+            row_h = 0;
+        }
+        /* Hard cap: drop icons that would land past the secondary limit.
+         * Pre-existing layouts wouldn't hit this, but a degenerate config
+         * shouldn't push icons off-screen silently. */
+        if (cur_y + ti->l.grd_rect.h > max_y) {
+            ti->is_layed_out = 0;
+            continue;
+        }
+        ti->l.grd_rect.x = cur_x;
+        ti->l.grd_rect.y = cur_y;
+        ti->is_layed_out = 1;
+        ti->is_updated = ti->is_updated || !was_layed_out
+            || old_grd.x != cur_x || old_grd.y != cur_y;
+        if (ti->l.grd_rect.h > row_h) row_h = ti->l.grd_rect.h;
+        cur_x += ti->l.grd_rect.w;
+        if (cur_x > grid_sz.x) grid_sz.x = cur_x;
+        if (cur_y + ti->l.grd_rect.h > grid_sz.y)
+            grid_sz.y = cur_y + ti->l.grd_rect.h;
+    }
+
+    icon_list_forall(&layout_translate_to_window);
+    LOG_TRACE(("relayout in list order: grid size %dx%d\n", grid_sz.x, grid_sz.y));
+    return SUCCESS;
+}

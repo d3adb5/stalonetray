@@ -20,6 +20,7 @@
 
 #include "common.h"
 #include "debug.h"
+#include "drag.h"
 #include "icons.h"
 #include "settings.h"
 #include "tray.h"
@@ -103,6 +104,7 @@ int embedder_embed(struct TrayIcon *ti)
     /* mid-parent must be lowered so that it does not osbcure
      * scollbar windows */
     XLowerWindow(tray_data.dpy, ti->mid_parent);
+    drag_install_grab(ti);
     if (!x11_ok()) RETURN_STATUS(FAILURE);
 #ifndef DELAY_EMBEDDING_CONFIRMATION
     /* 5. Send message confirming embedding */
@@ -212,6 +214,9 @@ static int embedder_update_window_position(struct TrayIcon *ti)
     int x, y;
     /* Ignore hidden icons */
     if (!ti->is_visible) return NO_MATCH;
+    /* The icon currently following the cursor positions itself; the grid
+     * value is for after-release snapping only. */
+    if (drag_icon_is_floating(ti)) return NO_MATCH;
     /* Update only those icons that do want it (everyone if update was forced)
      */
     if (!update_forced && !ti->is_updated && !ti->is_resized

@@ -54,6 +54,10 @@ void layout_get_size(int *width, int *height);
 /* Translate grid coordinates into window coordinates */
 int layout_translate_to_window(struct TrayIcon *ti);
 
+/* Re-lay out every visible icon from scratch following list order.
+ * Used by drag-to-reorder to commit the new sequence. */
+int layout_relayout_in_list_order(void);
+
 /* Return next icon in tab chain */
 struct TrayIcon *layout_next(struct TrayIcon *current);
 
