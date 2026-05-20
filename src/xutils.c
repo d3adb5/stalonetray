@@ -45,8 +45,8 @@ int x11_error_handler(Display *dpy, XErrorEvent *err)
     snprintf(req_num_str, 32, "%d", err->request_code);
     XGetErrorDatabaseText(
         dpy, "XRequest", req_num_str, "Unknown", req_str, PATH_MAX);
-    LOG_ERROR(("X11 error: %s (request: %s, resource 0x%x)\n", msg, req_str,
-        err->request_code));
+    LOG_ERROR(("X11 error: %s (request: %s, resource 0x%lx)\n", msg, req_str,
+        err->resourceid));
     return 0;
 }
 
