@@ -404,6 +404,8 @@ int tray_update_window_strut()
 int tray_update_window_props()
 {
     XSizeHints xsh;
+    XWindowAttributes xwa;
+    Window child;
     int cur_base_width, cur_base_height;
     int new_width, new_height;
     int layout_width, layout_height;
@@ -416,8 +418,18 @@ int tray_update_window_props()
      * else if (shrink_back) orig_dims;
      * else                  current_dims;
      */
-    x11_get_window_size(tray_data.dpy, tray_data.tray, &tray_data.xsh.width,
-        &tray_data.xsh.height);
+    /* Read the window's size and absolute position from a single
+     * XGetWindowAttributes snapshot. Reading them separately (the size here,
+     * the position later in phase 2) let a resize we had just requested apply
+     * between the two reads, producing an inconsistent size/position pair: the
+     * gravity shift below would then run a second time and the tray would jump
+     * by one icon width on an otherwise no-op update -- e.g. an icon's
+     * dock-confirmation message right after it was added. */
+    XGetWindowAttributes(tray_data.dpy, tray_data.tray, &xwa);
+    XTranslateCoordinates(tray_data.dpy, tray_data.tray, xwa.root, 0, 0,
+        &tray_data.xsh.x, &tray_data.xsh.y, &child);
+    tray_data.xsh.width = xwa.width;
+    tray_data.xsh.height = xwa.height;
     layout_get_size(&layout_width, &layout_height);
     LOG_TRACE(("layout geometry: %dx%d\n", layout_width, layout_height));
     tray_calc_tray_area_size(tray_data.xsh.width, tray_data.xsh.height,
@@ -471,9 +483,10 @@ int tray_update_window_props()
          * way I have expected (i.e. using it to calculate reference point as
          * described in ICCM/WM specs). Perhaps, I was dreaming.  So, prior to
          * resizing trays window, it is necessary to recalculate window
-         * absolute position and shift it according to grow gravity settings */
-        x11_get_window_abs_coords(
-            tray_data.dpy, tray_data.tray, &tray_data.xsh.x, &tray_data.xsh.y);
+         * absolute position and shift it according to grow gravity settings.
+         * The absolute position was captured together with the size in phase 1
+         * (above), so the shift stays consistent with the size we compare
+         * against. */
         LOG_TRACE(("old tray window geometry: %dx%d+%d+%d\n", new_width,
             new_height, tray_data.xsh.x, tray_data.xsh.y));
         if (settings.grow_gravity & GRAV_E)

@@ -26,6 +26,7 @@
 #include "embed.h"
 #include "icons.h"
 #include "layout.h"
+#include "order.h"
 #include "wmh.h"
 #include "xembed.h"
 #include "xutils.h"
@@ -190,7 +191,9 @@ void add_icon(Window w, int cmode)
     }
     if (!xembed_embed(ti)) goto embedding_failed_after_layout;
     if (!embedder_embed(ti)) goto embedding_failed_after_layout;
+    order_place_icon(ti);
     embedder_update_positions(False);
+    order_save();
     tray_update_window_props();
     /* Report success */
     LOG_INFO(("added icon %s (wid 0x%lx) as %s\n",
@@ -236,6 +239,7 @@ void remove_icon(Window w)
      * routine instad of passing cryptinc constant? */
     scrollbars_click(SB_WND_MAX);
     tray_update_window_props();
+    order_save();
     dump_tray_status();
 }
 
@@ -390,6 +394,8 @@ void perform_periodic_tasks(int mask)
     }
     /* 4. run scrollbars periodic tasks */
     if (mask & PT_MASK_SB) scrollbars_periodic_tasks();
+    /* 5. close the icon-order restore window once its timeout elapses */
+    order_periodic();
 }
 
 /**********************
@@ -792,6 +798,7 @@ int tray_main(int argc, char **argv)
 #endif
     xembed_init();
     drag_init();
+    order_init();
 #ifdef _ST_WITH_NATIVE_KDE
     kde_icons_update();
 #endif
@@ -807,7 +814,8 @@ int tray_main(int argc, char **argv)
          * does not if signal occurs. This means that graceful
          * exit on e.g. Ctrl-C cannot be implemented without hacks. */
         while (XPending(tray_data.dpy)
-            || tray_data.scrollbars_data.scrollbar_down == -1) {
+            || (tray_data.scrollbars_data.scrollbar_down == -1
+                && !order_startup_pending())) {
             XNextEvent(tray_data.dpy, &ev);
             xembed_handle_event(ev);
             scrollbars_handle_event(ev);

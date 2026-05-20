@@ -6,6 +6,7 @@ project_sources += [
   'src/image.c',
   'src/layout.c',
   'src/main.c',
+  'src/order.c',
   'src/scrollbars.c',
   'src/settings.c',
   'src/tray.c',

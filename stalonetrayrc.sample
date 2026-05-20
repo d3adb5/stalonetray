@@ -109,6 +109,17 @@ scrollbars none
 #                            # shift, ctrl, super, or none
 # drag_modifier alt
 
+# remember_icon_order [<bool>] # persist icon order across tray restarts
+# remember_icon_order true
+
+# icon_order_file <path>     # where to store the icon order state file;
+#                            # defaults to $XDG_STATE_HOME/stalonetray/order-<screen>
+# icon_order_file ~/.local/state/stalonetray/order-0
+
+# icon_order_timeout <int>   # seconds to wait for icons to redock at startup
+#                            # before settling on the restored order; default 10
+# icon_order_timeout 10
+
 # skip_taskbar [<bool>]      # hide tray`s window from the taskbar
 skip_taskbar true
 
