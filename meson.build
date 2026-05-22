@@ -20,6 +20,7 @@ project_sources = []
 dependencies = {
   'x11': dependency('x11', required: true),
   'xinerama': dependency('xinerama', required: get_option('xinerama')),
+  'randr': dependency('xrandr', required: get_option('randr')),
   'xpm': dependency('xpm', required: get_option('xpm')),
 }
 
@@ -36,6 +37,11 @@ feature_list = []
 if get_option('xinerama').enabled()
   build_args += ['-D_ST_WITH_XINERAMA']
   feature_list += ['xinerama']
+endif
+
+if get_option('randr').enabled()
+  build_args += ['-D_ST_WITH_XRANDR']
+  feature_list += ['randr']
 endif
 
 if get_option('xpm').enabled()

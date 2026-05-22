@@ -820,6 +820,7 @@ int tray_main(int argc, char **argv)
             xembed_handle_event(ev);
             scrollbars_handle_event(ev);
             drag_handle_event(ev);
+            xinerama_handle_event(ev);
             switch (ev.type) {
             case VisibilityNotify:
                 LOG_TRACE(("VisibilityNotify (0x%lx, state=%d)\n",

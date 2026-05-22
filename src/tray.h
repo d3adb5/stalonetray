@@ -117,6 +117,11 @@ struct TrayData {
     XineramaScreenInfo *monitors; /* Xinerama screens info */
 #endif
 
+#ifdef _ST_WITH_XRANDR
+    /* RandR data */
+    int randr_event_base; /* RandR event base, or -1 if RandR is unavailable */
+#endif
+
     /* XEMBED data */
     struct XEMBEDData xembed_data; /* XEMBED data */
 

@@ -1,5 +1,7 @@
 option('xinerama', type: 'feature', value: 'enabled',
   description: 'Enable Xinerama support for multiple monitors')
+option('randr', type: 'feature', value: 'enabled',
+  description: 'Enable XRandR support to react to monitor changes at runtime')
 option('xpm', type: 'feature', value: 'auto',
   description: 'Enable XPM background support')
 option('native_kde', type: 'feature', value: 'auto',
