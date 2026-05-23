@@ -7,16 +7,16 @@
 
 Stalonetray is a STAnd-aLONE system TRAY (notification area) for Unix desktops
 using the X11 windowing system. It has minimal default build and run-time
-dependencies: the Xlib and libXinerama, though you could do away with the
-latter by disabling a feature for even more minimalism. Stalonetray runs under
-virtually any window manager.
+dependencies: the Xlib, libXinerama and libXRandR, though you could do away
+with the latter two by disabling features for even more minimalism. Stalonetray
+runs under virtually any window manager.
 
 To start using stalonetray, just copy `stalonetrayrc.sample` to
 `~/.stalonetrayrc` or to `$XDG_CONFIG_HOME/stalonetrayrc`. It is well-commented
 and should suffice for a quick start.
 
-Note that some features are disabled by default and may not work out of the
-box, depending on how stalonetray was built by the package maintainer. See the
+Note that some features may be disabled by default and not work out of the box,
+depending on how stalonetray was built by the package maintainer. See the
 "Building from source" section below if you want to compile it yourself with
 the features you need.
 
