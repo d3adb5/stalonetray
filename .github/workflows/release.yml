@@ -51,7 +51,8 @@ jobs:
           sudo rm -f /var/lib/man-db/auto-update
           sudo apt-get update
           sudo apt-get install -y \
-            xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev
+            xsltproc docbook-xsl libxpm-dev libx11-dev libxinerama-dev \
+            libxrandr-dev
 
           pip install 'meson>=1.5.0'
           meson setup --buildtype release _build -D c_std=gnu2x

@@ -48,6 +48,10 @@ void tray_init()
     tray_data.monitors = NULL;
 #endif
 
+#ifdef _ST_WITH_XRANDR
+    tray_data.randr_event_base = -1;
+#endif
+
     scrollbars_init();
 }
 

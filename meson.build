@@ -1,7 +1,7 @@
 project(
   'stalonetray',
   'c',
-  version: '1.2.0',
+  version: '1.3.0',
   default_options: ['warning_level=3', 'c_std=gnu23'],
   meson_version: '>=1.1.0',
 )
@@ -20,6 +20,7 @@ project_sources = []
 dependencies = {
   'x11': dependency('x11', required: true),
   'xinerama': dependency('xinerama', required: get_option('xinerama')),
+  'randr': dependency('xrandr', required: get_option('randr')),
   'xpm': dependency('xpm', required: get_option('xpm')),
 }
 
@@ -33,9 +34,20 @@ subdir('src')
 
 feature_list = []
 
+# RandR only drives runtime reaction to monitor changes by re-querying
+# Xinerama, so it is meaningless on its own.
+if get_option('randr').enabled() and not get_option('xinerama').enabled()
+  error('randr support requires xinerama support')
+endif
+
 if get_option('xinerama').enabled()
   build_args += ['-D_ST_WITH_XINERAMA']
   feature_list += ['xinerama']
+endif
+
+if get_option('randr').enabled()
+  build_args += ['-D_ST_WITH_XRANDR']
+  feature_list += ['randr']
 endif
 
 if get_option('xpm').enabled()
