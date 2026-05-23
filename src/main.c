@@ -561,7 +561,13 @@ void client_message(XClientMessageEvent ev)
                 dump_tray_status();
 #endif
             }
-            tray_update_window_props();
+            /* The dock-confirm message is sent by us from embedder_embed and
+             * loops back through the X server; by the time we process it,
+             * tray_update_window_props has already run once (in add_icon, or
+             * in icon_track_visibility_changes for hidden->visible). Running
+             * it again here re-applies the grow-gravity shift on top of a
+             * half-applied WM state (the move processed, the resize still
+             * pending), shifting the tray by one icon width. Skip it. */
             break;
         /* Dump tray status on request */
         case STALONE_TRAY_STATUS_REQUESTED: dump_tray_status(); break;
