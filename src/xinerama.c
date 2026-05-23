@@ -51,8 +51,12 @@ void xinerama_init(Display *dpy)
     {
         int error_base;
         if (XRRQueryExtension(dpy, &tray_data.randr_event_base, &error_base)) {
-            XRRSelectInput(
-                dpy, DefaultRootWindow(dpy), RRScreenChangeNotifyMask);
+            /* CRTC/output changes are needed to catch monitors being moved
+             * relative to one another, which need not change the screen size
+             * the way adding or removing a monitor does. */
+            XRRSelectInput(dpy, DefaultRootWindow(dpy),
+                RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask
+                    | RROutputChangeNotifyMask);
             LOG_TRACE(("RandR active, event base %d\n",
                 tray_data.randr_event_base));
         } else {
@@ -109,14 +113,24 @@ void xinerama_handle_event(XEvent ev)
 {
 #if defined(_ST_WITH_XINERAMA) && defined(_ST_WITH_XRANDR)
     XWindowAttributes root_wa;
+    int is_screen_change, is_randr_notify;
 
-    if (tray_data.randr_event_base < 0
-        || ev.type != tray_data.randr_event_base + RRScreenChangeNotify)
+    if (tray_data.randr_event_base < 0)
         return;
 
-    LOG_TRACE(("RRScreenChangeNotify received; reconfiguring monitors\n"));
+    /* RRScreenChangeNotify covers screen-size changes (add/remove a monitor);
+     * RRNotify (CRTC/output changes) additionally covers monitors being moved
+     * relative to one another. Either way we re-derive everything. */
+    is_screen_change =
+        ev.type == tray_data.randr_event_base + RRScreenChangeNotify;
+    is_randr_notify = ev.type == tray_data.randr_event_base + RRNotify;
+    if (!is_screen_change && !is_randr_notify)
+        return;
 
-    XRRUpdateConfiguration(&ev);
+    LOG_TRACE(("RandR change received; reconfiguring monitors\n"));
+
+    if (is_screen_change)
+        XRRUpdateConfiguration(&ev);
     xinerama_query_monitors(tray_data.dpy);
 
     if (!tray_data.xinerama_active)
