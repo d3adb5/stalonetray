@@ -34,6 +34,12 @@ subdir('src')
 
 feature_list = []
 
+# RandR only drives runtime reaction to monitor changes by re-querying
+# Xinerama, so it is meaningless on its own.
+if get_option('randr').enabled() and not get_option('xinerama').enabled()
+  error('randr support requires xinerama support')
+endif
+
 if get_option('xinerama').enabled()
   build_args += ['-D_ST_WITH_XINERAMA']
   feature_list += ['xinerama']
