@@ -15,6 +15,8 @@
 #include <errno.h>
 #include <libgen.h>
 #include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,68 +36,98 @@
 
 /* Here we keep our filthy settings */
 struct Settings settings;
-/* Initialize data */
+
+/* Parsers write fields into *parse_target; each Param's struct_offset is the
+ * offsetof() into struct Settings for the field that param drives. This lets
+ * settings_reload parse into a scratch struct without touching the live
+ * `settings` until the merge step. */
+static struct Settings *parse_target = &settings;
+
+/* Resolve a parser's struct_offset into a typed lvalue inside parse_target. */
+#define REF(type) ((type *) ((char *) parse_target + struct_offset))
+
+/* strdup() that DIEs on OOM and passes NULL through unchanged. Used for every
+ * string assigned into a settings field, so heap ownership is uniform across
+ * the struct: every char* in struct Settings is either NULL or a heap pointer
+ * owned by that struct (free_settings can release them blindly). */
+static char *xstrdup(const char *s)
+{
+    char *r;
+    if (s == NULL) return NULL;
+    if ((r = strdup(s)) == NULL) DIE_OOM(("strdup() failed for \"%s\"\n", s));
+    return r;
+}
+
+/* Replace a heap-owned string field with a strdup of `s`. Frees the old value
+ * first; safe to call when *slot is NULL (e.g. immediately after memset). */
+static void set_str(char **slot, const char *s)
+{
+    free(*slot);
+    *slot = xstrdup(s);
+}
+
+/* Forward declaration; the body lives further down with the other parsers. */
+void free_window_class_list(struct WindowClass *head);
+
+void free_settings(struct Settings *s)
+{
+    free(s->bg_color_str);
+    free(s->tint_color_str);
+    free(s->scrollbars_highlight_color_str);
+    free(s->display_str);
+    free(s->geometry_str);
+    free(s->max_geometry_str);
+    free(s->wnd_type);
+    free(s->wnd_layer);
+    free(s->wnd_name);
+    free(s->bg_pmap_path);
+    free(s->config_fname);
+    free(s->icon_order_file);
+    free(s->remote_click_name);
+    free_window_class_list(s->ignored_classes);
+    memset(s, 0, sizeof(*s));
+}
+
+/* (Re-)populate *parse_target with default values. Safe to call repeatedly:
+ * any existing heap content is freed first via free_settings(). */
 void init_default_settings(void)
 {
-    settings.bg_color_str = "gray";
-    settings.tint_color_str = "white";
-    settings.scrollbars_highlight_color_str = "white";
-    settings.display_str = NULL;
-#ifdef DEBUG
-    settings.log_level = LOG_LEVEL_ERR;
-#endif
-    settings.geometry_str = NULL;
-    settings.max_geometry_str = "0x0";
-    settings.icon_size = FALLBACK_ICON_SIZE;
-    settings.slot_size.x = -1;
-    settings.slot_size.y = -1;
-    settings.deco_flags = DECO_NONE;
-    settings.max_tray_dims.x = 0;
-    settings.max_tray_dims.y = 0;
-    settings.parent_bg = 0;
-    settings.shrink_back_mode = 1;
-    settings.sticky = 1;
-    settings.skip_taskbar = 1;
-    settings.transparent = 0;
-    settings.vertical = 0;
-    settings.grow_gravity = GRAV_N | GRAV_W;
-    settings.icon_gravity = GRAV_N | GRAV_W;
-    settings.wnd_type = _NET_WM_WINDOW_TYPE_DOCK;
-    settings.wnd_layer = NULL;
-    settings.wnd_name = PROGNAME;
-    settings.xsync = 0;
-    settings.need_help = 0;
-    settings.config_fname = NULL;
-    settings.full_pmt_search = 1;
-    settings.min_space_policy = 0;
-    settings.pixmap_bg = 0;
-    settings.bg_pmap_path = NULL;
-    settings.tint_level = 0;
-    settings.fuzzy_edges = 0;
-    settings.dockapp_mode = DOCKAPP_NONE;
-    settings.scrollbars_size = -1;
-    settings.scrollbars_mode = SB_MODE_NONE;
-    settings.scrollbars_inc = -1;
-    settings.wm_strut_mode = WM_STRUT_AUTO;
-    settings.kludge_flags = 0;
-    settings.remote_click_name = NULL;
-    settings.remote_click_btn = REMOTE_CLICK_BTN_DEFAULT;
-    settings.remote_click_cnt = REMOTE_CLICK_CNT_DEFAULT;
-    settings.remote_click_pos.x = REMOTE_CLICK_POS_DEFAULT;
-    settings.remote_click_pos.y = REMOTE_CLICK_POS_DEFAULT;
-    settings.ignored_classes = NULL;
-    settings.scroll_everywhere = 0;
-    settings.drag_reorder = 1;
-    settings.drag_modifier = Mod1Mask;
-    settings.remember_icon_order = 1;
-    settings.icon_order_file = NULL;
-    settings.icon_order_timeout = 10;
-#ifdef DELAY_EMBEDDING_CONFIRMATION
-    settings.confirmation_delay = 3;
-#endif
+    free_settings(parse_target);
 
-#ifdef _ST_WITH_XINERAMA
-    settings.monitor = 0;
+    set_str(&parse_target->bg_color_str, "gray");
+    set_str(&parse_target->tint_color_str, "white");
+    set_str(&parse_target->scrollbars_highlight_color_str, "white");
+    set_str(&parse_target->max_geometry_str, "0x0");
+    set_str(&parse_target->wnd_type, _NET_WM_WINDOW_TYPE_DOCK);
+    set_str(&parse_target->wnd_name, PROGNAME);
+
+#ifdef DEBUG
+    parse_target->log_level = LOG_LEVEL_ERR;
+#endif
+    parse_target->icon_size = FALLBACK_ICON_SIZE;
+    parse_target->slot_size.x = -1;
+    parse_target->slot_size.y = -1;
+    parse_target->deco_flags = DECO_NONE;
+    parse_target->shrink_back_mode = 1;
+    parse_target->sticky = 1;
+    parse_target->skip_taskbar = 1;
+    parse_target->grow_gravity = GRAV_N | GRAV_W;
+    parse_target->icon_gravity = GRAV_N | GRAV_W;
+    parse_target->full_pmt_search = 1;
+    parse_target->scrollbars_size = -1;
+    parse_target->scrollbars_mode = SB_MODE_NONE;
+    parse_target->scrollbars_inc = -1;
+    parse_target->wm_strut_mode = WM_STRUT_AUTO;
+    parse_target->remote_click_btn = REMOTE_CLICK_BTN_DEFAULT;
+    parse_target->remote_click_cnt = REMOTE_CLICK_CNT_DEFAULT;
+    parse_target->remote_click_pos.x = REMOTE_CLICK_POS_DEFAULT;
+    parse_target->remote_click_pos.y = REMOTE_CLICK_POS_DEFAULT;
+    parse_target->drag_reorder = 1;
+    parse_target->drag_modifier = Mod1Mask;
+    parse_target->remember_icon_order = 1;
+    parse_target->icon_order_timeout = 10;
+#ifdef DELAY_EMBEDDING_CONFIRMATION
+    parse_target->confirmation_delay = 3;
 #endif
 }
 
@@ -105,22 +137,21 @@ void init_default_settings(void)
     if (!silent) LOG_ERROR(("Parsing error: " msg ", \"%s\" found\n", str));
 
 /* Parse highlight color */
-int parse_scrollbars_highlight_color(int, const char **argv, void **references, int)
+int parse_scrollbars_highlight_color(int, const char **argv, size_t struct_offset, int)
 {
-    char **highlight_color = (char **) references[0];
+    char **highlight_color = REF(char *);
 
-    if (!strcasecmp(argv[0], "disable"))
-        *highlight_color = NULL;
-    else if ((*highlight_color = strdup(argv[0])) == NULL)
-        DIE_OOM(("Could not copy value from parameter\n"));
-
+    free(*highlight_color);
+    *highlight_color = strcasecmp(argv[0], "disable") == 0
+                         ? NULL
+                         : xstrdup(argv[0]);
     return SUCCESS;
 }
 
 /* Parse log level */
-int parse_log_level(int, const char **argv, void **references, int silent)
+int parse_log_level(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *log_level = (int *) references[0];
+    int *log_level = REF(int);
 
     if (!strcmp(argv[0], "err"))
         *log_level = LOG_LEVEL_ERR;
@@ -136,15 +167,16 @@ int parse_log_level(int, const char **argv, void **references, int silent)
 }
 
 /* Parse list of ignored window classes */
-int parse_ignored_classes(int argc, const char **argv, void **references, int)
+int parse_ignored_classes(int argc, const char **argv, size_t struct_offset, int)
 {
-    struct WindowClass **classes = (struct WindowClass **) references[0];
-    struct WindowClass *newclass = NULL;
+    struct WindowClass **classes = REF(struct WindowClass *);
+    struct WindowClass *newclass;
     int i;
 
     for (i = 0; i < argc; i++) {
-        newclass = malloc(sizeof(struct WindowClass));
-        newclass->name = strdup(argv[i]);
+        newclass = malloc(sizeof(*newclass));
+        if (newclass == NULL) DIE_OOM(("could not allocate WindowClass\n"));
+        newclass->name = xstrdup(argv[i]);
         LIST_ADD_ITEM(*classes, newclass);
     }
 
@@ -152,9 +184,9 @@ int parse_ignored_classes(int argc, const char **argv, void **references, int)
 }
 
 /* Parse dockapp mode */
-int parse_dockapp_mode(int, const char **argv, void **references, int silent)
+int parse_dockapp_mode(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *dockapp_mode = (int *) references[0];
+    int *dockapp_mode = REF(int);
 
     if (!strcmp(argv[0], "none"))
         *dockapp_mode = DOCKAPP_NONE;
@@ -171,9 +203,9 @@ int parse_dockapp_mode(int, const char **argv, void **references, int silent)
 
 /* Parse gravity string ORing resulting value
  * with current value of tgt */
-int parse_gravity(int, const char **argv, void **references, int silent)
+int parse_gravity(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *gravity = (int *) references[0];
+    int *gravity = REF(int);
     const char *gravity_s = argv[0];
     int parsed = 0;
 
@@ -204,9 +236,9 @@ fail:
 }
 
 /* Parse integer string storing resulting value in tgt */
-int parse_int(int, const char **argv, void **references, int silent)
+int parse_int(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *parsed = (int *) references[0];
+    int *parsed = REF(int);
     char *invalid;
 
     *parsed = strtol(argv[0], &invalid, 0);
@@ -220,10 +252,10 @@ int parse_int(int, const char **argv, void **references, int silent)
 }
 
 /* Parse kludges mode */
-int parse_kludges(int, const char **argv, void **references, int silent)
+int parse_kludges(int, const char **argv, size_t struct_offset, int silent)
 {
     const char *token = strtok((char *) argv[0], ",");
-    int *kludges = (int *) references[0];
+    int *kludges = REF(int);
 
     for (; token != NULL; token = strtok(NULL, ",")) {
         if (!strcasecmp(token, "fix_window_pos"))
@@ -242,9 +274,9 @@ int parse_kludges(int, const char **argv, void **references, int silent)
 }
 
 /* Parse strut mode */
-int parse_strut_mode(int, const char **argv, void **references, int silent)
+int parse_strut_mode(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *strut_mode = (int *) references[0];
+    int *strut_mode = REF(int);
 
     if (!strcasecmp(argv[0], "auto"))
         *strut_mode = WM_STRUT_AUTO;
@@ -268,9 +300,9 @@ int parse_strut_mode(int, const char **argv, void **references, int silent)
 }
 
 /* Parse X11 modifier name (alt, shift, ctrl, super, none) into a mask. */
-int parse_modifier(int, const char **argv, void **references, int silent)
+int parse_modifier(int, const char **argv, size_t struct_offset, int silent)
 {
-    unsigned int *mask = (unsigned int *) references[0];
+    unsigned int *mask = REF(unsigned int);
     const char *name = argv[0];
 
     if (!strcasecmp(name, "alt") || !strcasecmp(name, "mod1"))
@@ -291,11 +323,11 @@ int parse_modifier(int, const char **argv, void **references, int silent)
 }
 
 /* Parse boolean string storing result in tgt*/
-int parse_bool(int, const char **argv, void **references, int silent)
+int parse_bool(int, const char **argv, size_t struct_offset, int silent)
 {
     const char *true_str[] = {"yes", "on", "true", "1", NULL};
     const char *false_str[] = {"no", "off", "false", "0", NULL};
-    int *boolean = (int *) references[0];
+    int *boolean = REF(int);
 
     for (const char **s = true_str; *s; s++) {
         if (!strcasecmp(argv[0], *s)) {
@@ -316,11 +348,11 @@ int parse_bool(int, const char **argv, void **references, int silent)
 }
 
 /* Backwards version of the boolean parser */
-int parse_bool_rev(int argc, const char **argv, void **references, int silent)
+int parse_bool_rev(int argc, const char **argv, size_t struct_offset, int silent)
 {
-    int *boolean = (int *) references[0];
+    int *boolean = REF(int);
 
-    if (parse_bool(argc, argv, references, silent)) {
+    if (parse_bool(argc, argv, struct_offset, silent)) {
         *boolean = ! *boolean;
         return SUCCESS;
     }
@@ -329,63 +361,66 @@ int parse_bool_rev(int argc, const char **argv, void **references, int silent)
 }
 
 /* Parse window layer string storing result in tgt */
-int parse_wnd_layer(int, const char **argv, void **references, int silent)
+int parse_wnd_layer(int, const char **argv, size_t struct_offset, int silent)
 {
-    char **window_layer = (char **) references[0];
+    const char *layer;
+    char **window_layer = REF(char *);
 
     if (!strcasecmp(argv[0], "top"))
-        *window_layer = _NET_WM_STATE_ABOVE;
+        layer = _NET_WM_STATE_ABOVE;
     else if (!strcasecmp(argv[0], "bottom"))
-        *window_layer = _NET_WM_STATE_BELOW;
+        layer = _NET_WM_STATE_BELOW;
     else if (!strcasecmp(argv[0], "normal"))
-        *window_layer = NULL;
+        layer = NULL;
     else {
         PARSING_ERROR("window layer expected", argv[0]);
         return FAILURE;
     }
 
+    free(*window_layer);
+    *window_layer = xstrdup(layer);
     return SUCCESS;
 }
 
 /* Parse window type string storing result in tgt */
-int parse_wnd_type(int, const char **argv, void **references, int silent)
+int parse_wnd_type(int, const char **argv, size_t struct_offset, int silent)
 {
-    const char **window_type = (const char **) references[0];
+    const char *type;
+    char **window_type = REF(char *);
 
     if (!strcasecmp(argv[0], "dock"))
-        *window_type = _NET_WM_WINDOW_TYPE_DOCK;
+        type = _NET_WM_WINDOW_TYPE_DOCK;
     else if (!strcasecmp(argv[0], "toolbar"))
-        *window_type = _NET_WM_WINDOW_TYPE_TOOLBAR;
+        type = _NET_WM_WINDOW_TYPE_TOOLBAR;
     else if (!strcasecmp(argv[0], "utility"))
-        *window_type = _NET_WM_WINDOW_TYPE_UTILITY;
+        type = _NET_WM_WINDOW_TYPE_UTILITY;
     else if (!strcasecmp(argv[0], "normal"))
-        *window_type = _NET_WM_WINDOW_TYPE_NORMAL;
+        type = _NET_WM_WINDOW_TYPE_NORMAL;
     else if (!strcasecmp(argv[0], "desktop"))
-        *window_type = _NET_WM_WINDOW_TYPE_DESKTOP;
+        type = _NET_WM_WINDOW_TYPE_DESKTOP;
     else {
         PARSING_ERROR("window type expected", argv[0]);
         return FAILURE;
     }
 
+    free(*window_type);
+    *window_type = xstrdup(type);
     return SUCCESS;
 }
 
 /* Just copy string from arg to *tgt */
-int parse_copystr(int, const char **argv, void **references, int)
+int parse_copystr(int, const char **argv, size_t struct_offset, int)
 {
-    const char **stringref = (const char **) references[0];
-
-    /* Valgrind note: this memory will never be freed before stalonetray's exit. */
-    if ((*stringref = strdup(argv[0])) == NULL)
-        DIE_OOM(("Could not copy value from parameter\n"));
-
+    char **stringref = REF(char *);
+    free(*stringref);
+    *stringref = xstrdup(argv[0]);
     return SUCCESS;
 }
 
 /* Parses window decoration specification */
-int parse_deco(int, const char **argv, void **references, int silent)
+int parse_deco(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *decorations = (int *) references[0];
+    int *decorations = REF(int);
     const char *arg = argv[0];
 
     if (!strcasecmp(arg, "none"))
@@ -404,9 +439,9 @@ int parse_deco(int, const char **argv, void **references, int silent)
 }
 
 /* Parses window decoration specification */
-int parse_sb_mode(int, const char **argv, void **references, int silent)
+int parse_sb_mode(int, const char **argv, size_t struct_offset, int silent)
 {
-    int *sb_mode = (int *) references[0];
+    int *sb_mode = REF(int);
 
     if (!strcasecmp(argv[0], "none"))
         *sb_mode = 0;
@@ -424,56 +459,9 @@ int parse_sb_mode(int, const char **argv, void **references, int silent)
     return SUCCESS;
 }
 
-#if 0
-/* Parses remote op specification */
-int parse_remote(char *str, void **tgt, int silent)
+int parse_remote_click_type(int, const char **argv, size_t struct_offset, int silent)
 {
-#define NEXT_TOK(str, rest) \
-    do { \
-        (str) = (rest); \
-        if ((str) != NULL) { \
-            (rest) = strchr((str), ','); \
-            if ((rest) != NULL) *((rest)++) = 0; \
-        } \
-    } while (0)
-#define PARSE_INT(tgt, str, tail, def, msg) \
-    do { \
-        if (str == NULL || *(str) == '\0') { \
-            (tgt) = def; \
-        } else { \
-            (tgt) = strtol((str), &(tail), 0); \
-            if (*(tail) != '\0') { \
-                PARSING_ERROR(msg, (str)); \
-                return FAILURE; \
-            } \
-        } \
-    } while (0)
-	/* Handy names for parameters */
-	int *flag = (int *) tgt[0];
-	char **name = (char **) tgt[1];
-	int *btn = (int *) tgt[2];
-	struct Point *pos = (struct Point *) tgt[3];
-	/* Local variables */
-	char *rest = str, *tail;
-	if (str == NULL || strlen(str) == 0) return FAILURE;
-	*flag = 1;
-	NEXT_TOK(str, rest);
-	*name = strdup(str);
-	NEXT_TOK(str, rest);
-	PARSE_INT(*btn, str, tail, INT_MIN, "remote click: button number expected");
-	NEXT_TOK(str, rest);
-	PARSE_INT(pos->x, str, tail, INT_MIN, "remote click: x coordinate expected");
-	NEXT_TOK(str, rest);
-	PARSE_INT(pos->y, str, tail, INT_MIN, "remote click: y coordinate expected");
-	return SUCCESS;
-#undef NEXT_TOK
-#undef PARSE_INT
-}
-#endif
-
-int parse_remote_click_type(int, const char **argv, void **references, int silent)
-{
-    int *remote_click_type = (int *) references[0];
+    int *remote_click_type = REF(int);
 
     if (!strcasecmp(argv[0], "single"))
         *remote_click_type = 1;
@@ -487,17 +475,17 @@ int parse_remote_click_type(int, const char **argv, void **references, int silen
     return SUCCESS;
 }
 
-int parse_pos(int, const char **argv, void **references, int)
+int parse_pos(int, const char **argv, size_t struct_offset, int)
 {
-    struct Point *pos = (struct Point *) references[0];
+    struct Point *pos = REF(struct Point);
     unsigned int dummy;
     XParseGeometry(argv[0], &pos->x, &pos->y, &dummy, &dummy);
     return SUCCESS;
 }
 
-int parse_size(int, const char **argv, void **references, int)
+int parse_size(int, const char **argv, size_t struct_offset, int)
 {
-    struct Point *size = (struct Point *) references[0];
+    struct Point *size = REF(struct Point);
     unsigned int width, height;
     int bitmask, dummy;
 
@@ -516,17 +504,20 @@ int parse_size(int, const char **argv, void **references, int)
 
 /************ CLI **************/
 
-#define MAX_TARGETS 10
 #define MAX_DEFAULT_ARGS 10
 
 /* parameter parser function */
-typedef int (*param_parser_t)(int argc, const char **argv, void **references, int silent);
+typedef int (*param_parser_t)(int argc, const char **argv, size_t struct_offset, int silent);
 
 struct Param {
-    const char *short_name;        /* short command line parameter name */
-    const char *long_name;         /* long command line parameter name */
-    const char *rc_name;           /* parameter name for config file */
-    void *references[MAX_TARGETS]; /* array of references necessary when parsing */
+    const char *short_name; /* short command line parameter name */
+    const char *long_name;  /* long command line parameter name */
+    const char *rc_name;    /* parameter name for config file */
+
+    /* Where the parser writes its result. Given as offsetof(struct Settings,
+     * field) in each table entry below, and resolved against parse_target at
+     * parse time via the REF() macro. */
+    size_t struct_offset;
 
     const int pass; /* 0th pass parameters are parsed before rc file, */
                     /* 1st pass parameters are parsed after it */
@@ -538,14 +529,19 @@ struct Param {
     const char *default_argv[MAX_DEFAULT_ARGS]; /* default arguments if none are given */
 
     param_parser_t parser;  /* pointer to parsing function */
+
+    /* Whether this parameter is safe to re-parse from the config file on
+     * SIGHUP-driven reloads. parse_rc() skips entries with reloadable == 0
+     * when it is being called for a reload, so that they aren't re-strdup'd
+     * just to be thrown away. */
+    const int reloadable;
 };
 
 struct Param params[] = {
-    {
-        .short_name = "-display",
-        .long_name  = NULL,
-        .rc_name    = "display",
-        .references = { (void *) &settings.display_str },
+    {.short_name = "-display",
+        .long_name = NULL,
+        .rc_name = "display",
+        .struct_offset = offsetof(struct Settings, display_str),
 
         .pass = 1,
 
@@ -555,13 +551,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr},
+    {.short_name = NULL,
         .long_name = "--log-level",
         .rc_name = "log_level",
-        .references = { (void *) &settings.log_level },
+        .struct_offset = offsetof(struct Settings, log_level),
 
         .pass = 1,
 
@@ -571,13 +565,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_log_level
-    },
-    {
-        .short_name = "-bg",
+        .parser = (param_parser_t)&parse_log_level,
+        .reloadable = True},
+    {.short_name = "-bg",
         .long_name = "--background",
         .rc_name = "background",
-        .references = { (void *) &settings.bg_color_str },
+        .struct_offset = offsetof(struct Settings, bg_color_str),
 
         .pass = 1,
 
@@ -587,13 +580,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = "-c",
+        .parser = (param_parser_t)&parse_copystr,
+        .reloadable = True},
+    {.short_name = "-c",
         .long_name = "--config",
         .rc_name = NULL,
-        .references = { (void *) &settings.config_fname },
+        .struct_offset = offsetof(struct Settings, config_fname),
 
         .pass = 0,
 
@@ -603,13 +595,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = "-d",
+        .parser = (param_parser_t)&parse_copystr},
+    {.short_name = "-d",
         .long_name = "--decorations",
         .rc_name = "decorations",
-        .references = { (void *) &settings.deco_flags },
+        .struct_offset = offsetof(struct Settings, deco_flags),
 
         .pass = 1,
 
@@ -617,15 +607,14 @@ struct Param params[] = {
         .max_argc = 1,
 
         .default_argc = 1,
-        .default_argv = { "all" },
+        .default_argv = {"all"},
 
-        .parser = (param_parser_t) &parse_deco
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_deco,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--dockapp-mode",
         .rc_name = "dockapp_mode",
-        .references = { (void *) &settings.dockapp_mode },
+        .struct_offset = offsetof(struct Settings, dockapp_mode),
 
         .pass = 1,
 
@@ -633,15 +622,13 @@ struct Param params[] = {
         .max_argc = 1,
 
         .default_argc = 1,
-        .default_argv = { "simple" },
+        .default_argv = {"simple"},
 
-        .parser = (param_parser_t) &parse_dockapp_mode
-    },
-    {
-        .short_name = "-f",
+        .parser = (param_parser_t)&parse_dockapp_mode},
+    {.short_name = "-f",
         .long_name = "--fuzzy-edges",
         .rc_name = "fuzzy_edges",
-        .references = { (void *) &settings.fuzzy_edges },
+        .struct_offset = offsetof(struct Settings, fuzzy_edges),
 
         .pass = 1,
 
@@ -649,15 +636,14 @@ struct Param params[] = {
         .max_argc = 1,
 
         .default_argc = 1,
-        .default_argv = { "2" },
+        .default_argv = {"2"},
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = "-geometry",
+        .parser = (param_parser_t)&parse_int,
+        .reloadable = True},
+    {.short_name = "-geometry",
         .long_name = "--geometry",
         .rc_name = "geometry",
-        .references = { (void *) &settings.geometry_str },
+        .struct_offset = offsetof(struct Settings, geometry_str),
 
         .pass = 1,
 
@@ -667,13 +653,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr},
+    {.short_name = NULL,
         .long_name = "--grow-gravity",
         .rc_name = "grow_gravity",
-        .references = { (void *) &settings.grow_gravity },
+        .struct_offset = offsetof(struct Settings, grow_gravity),
 
         .pass = 1,
 
@@ -683,13 +667,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_gravity
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_gravity},
+    {.short_name = NULL,
         .long_name = "--icon-gravity",
         .rc_name = "icon_gravity",
-        .references = { (void *) &settings.icon_gravity },
+        .struct_offset = offsetof(struct Settings, icon_gravity),
 
         .pass = 1,
 
@@ -699,13 +681,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_gravity
-    },
-    {
-        .short_name = "-i",
+        .parser = (param_parser_t)&parse_gravity},
+    {.short_name = "-i",
         .long_name = "--icon-size",
         .rc_name = "icon_size",
-        .references = { (void *) &settings.icon_size },
+        .struct_offset = offsetof(struct Settings, icon_size),
 
         .pass = 1,
 
@@ -715,13 +695,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = "-h",
+        .parser = (param_parser_t)&parse_int},
+    {.short_name = "-h",
         .long_name = "--help",
         .rc_name = NULL,
-        .references = { (void *) &settings.need_help },
+        .struct_offset = offsetof(struct Settings, need_help),
 
         .pass = 0,
 
@@ -731,13 +709,11 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool},
+    {.short_name = NULL,
         .long_name = "--kludges",
         .rc_name = "kludges",
-        .references = { (void *) &settings.kludge_flags },
+        .struct_offset = offsetof(struct Settings, kludge_flags),
 
         .pass = 1,
 
@@ -747,13 +723,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_kludges
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_kludges,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--max-geometry",
         .rc_name = "max_geometry",
-        .references = { (void *) &settings.max_geometry_str },
+        .struct_offset = offsetof(struct Settings, max_geometry_str),
 
         .pass = 1,
 
@@ -763,14 +738,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
+        .parser = (param_parser_t)&parse_copystr},
 #ifdef _ST_WITH_XINERAMA
-    {
-        .short_name = "-m",
+    {.short_name = "-m",
         .long_name = "--monitor",
         .rc_name = "monitor",
-        .references = { (void *) &settings.monitor },
+        .struct_offset = offsetof(struct Settings, monitor),
 
         .pass = 1,
 
@@ -780,14 +753,13 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
+        .parser = (param_parser_t)&parse_int,
+        .reloadable = True},
 #endif
-    {
-        .short_name = NULL,
+    {.short_name = NULL,
         .long_name = "--no-shrink",
         .rc_name = "no_shrink",
-        .references = { (void *) &settings.shrink_back_mode },
+        .struct_offset = offsetof(struct Settings, shrink_back_mode),
 
         .pass = 1,
 
@@ -797,13 +769,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool_rev
-    },
-    {
-        .short_name = "-p",
+        .parser = (param_parser_t)&parse_bool_rev,
+        .reloadable = True},
+    {.short_name = "-p",
         .long_name = "--parent-bg",
         .rc_name = "parent_bg",
-        .references = { (void *) &settings.parent_bg },
+        .struct_offset = offsetof(struct Settings, parent_bg),
 
         .pass = 1,
 
@@ -813,13 +784,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = "-r",
+        .parser = (param_parser_t)&parse_bool,
+        .reloadable = True},
+    {.short_name = "-r",
         .long_name = "--remote-click-icon",
         .rc_name = NULL,
-        .references = { (void *) &settings.remote_click_name },
+        .struct_offset = offsetof(struct Settings, remote_click_name),
 
         .pass = 1,
 
@@ -829,13 +799,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr},
+    {.short_name = NULL,
         .long_name = "--remote-click-button",
         .rc_name = NULL,
-        .references = { (void *) &settings.remote_click_btn },
+        .struct_offset = offsetof(struct Settings, remote_click_btn),
 
         .pass = 1,
 
@@ -845,13 +813,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_int},
+    {.short_name = NULL,
         .long_name = "--remote-click-position",
         .rc_name = NULL,
-        .references = { (void *) &settings.remote_click_pos },
+        .struct_offset = offsetof(struct Settings, remote_click_pos),
 
         .pass = 1,
 
@@ -861,13 +827,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_pos
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_pos},
+    {.short_name = NULL,
         .long_name = "--remote-click-type",
         .rc_name = NULL,
-        .references = { (void *) &settings.remote_click_cnt },
+        .struct_offset = offsetof(struct Settings, remote_click_cnt),
 
         .pass = 1,
 
@@ -877,13 +841,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_remote_click_type
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_remote_click_type},
+    {.short_name = NULL,
         .long_name = "--scrollbars",
         .rc_name = "scrollbars",
-        .references = { (void *) &settings.scrollbars_mode },
+        .struct_offset = offsetof(struct Settings, scrollbars_mode),
 
         .pass = 1,
 
@@ -893,13 +855,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_sb_mode
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_sb_mode},
+    {.short_name = NULL,
         .long_name = "--scrollbars-highlight",
         .rc_name = "scrollbars_highlight",
-        .references = { (void *) &settings.scrollbars_highlight_color_str },
+        .struct_offset =
+            offsetof(struct Settings, scrollbars_highlight_color_str),
 
         .pass = 1,
 
@@ -909,13 +870,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_scrollbars_highlight_color
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_scrollbars_highlight_color,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--scrollbars-step",
         .rc_name = "scrollbars_step",
-        .references = { (void *) &settings.scrollbars_inc },
+        .struct_offset = offsetof(struct Settings, scrollbars_inc),
 
         .pass = 1,
 
@@ -925,13 +885,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_int},
+    {.short_name = NULL,
         .long_name = "--scrollbars-size",
         .rc_name = "scrollbars_size",
-        .references = { (void *) &settings.scrollbars_size },
+        .struct_offset = offsetof(struct Settings, scrollbars_size),
 
         .pass = 1,
 
@@ -941,13 +899,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_int},
+    {.short_name = NULL,
         .long_name = "--scroll-everywhere",
         .rc_name = "scroll_everywhere",
-        .references = { (void *) &settings.scroll_everywhere },
+        .struct_offset = offsetof(struct Settings, scroll_everywhere),
 
         .pass = 1,
 
@@ -957,13 +913,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--drag-reorder",
         .rc_name = "drag_reorder",
-        .references = { (void *) &settings.drag_reorder },
+        .struct_offset = offsetof(struct Settings, drag_reorder),
 
         .pass = 1,
 
@@ -973,13 +928,11 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool},
+    {.short_name = NULL,
         .long_name = "--drag-modifier",
         .rc_name = "drag_modifier",
-        .references = { (void *) &settings.drag_modifier },
+        .struct_offset = offsetof(struct Settings, drag_modifier),
 
         .pass = 1,
 
@@ -989,13 +942,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_modifier
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_modifier},
+    {.short_name = NULL,
         .long_name = "--remember-icon-order",
         .rc_name = "remember_icon_order",
-        .references = { (void *) &settings.remember_icon_order },
+        .struct_offset = offsetof(struct Settings, remember_icon_order),
 
         .pass = 1,
 
@@ -1005,13 +956,11 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool},
+    {.short_name = NULL,
         .long_name = "--icon-order-file",
         .rc_name = "icon_order_file",
-        .references = { (void *) &settings.icon_order_file },
+        .struct_offset = offsetof(struct Settings, icon_order_file),
 
         .pass = 1,
 
@@ -1021,13 +970,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr},
+    {.short_name = NULL,
         .long_name = "--icon-order-timeout",
         .rc_name = "icon_order_timeout",
-        .references = { (void *) &settings.icon_order_timeout },
+        .struct_offset = offsetof(struct Settings, icon_order_timeout),
 
         .pass = 1,
 
@@ -1037,13 +984,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_int},
+    {.short_name = NULL,
         .long_name = "--skip-taskbar",
         .rc_name = "skip_taskbar",
-        .references = { (void *) &settings.skip_taskbar },
+        .struct_offset = offsetof(struct Settings, skip_taskbar),
 
         .pass = 1,
 
@@ -1053,13 +998,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = "-s",
+        .parser = (param_parser_t)&parse_bool,
+        .reloadable = True},
+    {.short_name = "-s",
         .long_name = "--slot-size",
         .rc_name = "slot_size",
-        .references = { (void *) &settings.slot_size },
+        .struct_offset = offsetof(struct Settings, slot_size),
 
         .pass = 1,
 
@@ -1069,13 +1013,11 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_size
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_size},
+    {.short_name = NULL,
         .long_name = "--sticky",
         .rc_name = "sticky",
-        .references = { (void *) &settings.sticky },
+        .struct_offset = offsetof(struct Settings, sticky),
 
         .pass = 1,
 
@@ -1085,13 +1027,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--tint-color",
         .rc_name = "tint_color",
-        .references = { (void *) &settings.tint_color_str },
+        .struct_offset = offsetof(struct Settings, tint_color_str),
 
         .pass = 1,
 
@@ -1101,13 +1042,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--tint-level",
         .rc_name = "tint_level",
-        .references = { (void *) &settings.tint_level },
+        .struct_offset = offsetof(struct Settings, tint_level),
 
         .pass = 1,
 
@@ -1117,13 +1057,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
-    {
-        .short_name = "-t",
+        .parser = (param_parser_t)&parse_int,
+        .reloadable = True},
+    {.short_name = "-t",
         .long_name = "--transparent",
         .rc_name = "transparent",
-        .references = { (void *) &settings.transparent },
+        .struct_offset = offsetof(struct Settings, transparent),
 
         .pass = 1,
 
@@ -1133,13 +1072,12 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = "-v",
+        .parser = (param_parser_t)&parse_bool,
+        .reloadable = True},
+    {.short_name = "-v",
         .long_name = "--vertical",
         .rc_name = "vertical",
-        .references = { (void *) &settings.vertical },
+        .struct_offset = offsetof(struct Settings, vertical),
 
         .pass = 1,
 
@@ -1149,13 +1087,11 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool},
+    {.short_name = NULL,
         .long_name = "--window-layer",
         .rc_name = "window_layer",
-        .references = { (void *) &settings.wnd_layer },
+        .struct_offset = offsetof(struct Settings, wnd_layer),
 
         .pass = 1,
 
@@ -1165,13 +1101,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_wnd_layer
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_wnd_layer,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--window-name",
         .rc_name = "window_name",
-        .references = { (void *) &settings.wnd_name },
+        .struct_offset = offsetof(struct Settings, wnd_name),
 
         .pass = 1,
 
@@ -1181,13 +1116,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_copystr,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--window-strut",
         .rc_name = "window_strut",
-        .references = { (void *) &settings.wm_strut_mode },
+        .struct_offset = offsetof(struct Settings, wm_strut_mode),
 
         .pass = 1,
 
@@ -1197,13 +1131,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_strut_mode
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_strut_mode,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--window-type",
         .rc_name = "window_type",
-        .references = { (void *) &settings.wnd_type },
+        .struct_offset = offsetof(struct Settings, wnd_type),
 
         .pass = 1,
 
@@ -1213,13 +1146,12 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_wnd_type
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_wnd_type,
+        .reloadable = True},
+    {.short_name = NULL,
         .long_name = "--xsync",
         .rc_name = "xsync",
-        .references = { (void *) &settings.xsync },
+        .struct_offset = offsetof(struct Settings, xsync),
 
         .pass = 1,
 
@@ -1229,13 +1161,11 @@ struct Param params[] = {
         .default_argc = 1,
         .default_argv = {"true"},
 
-        .parser = (param_parser_t) &parse_bool
-    },
-    {
-        .short_name = NULL,
+        .parser = (param_parser_t)&parse_bool},
+    {.short_name = NULL,
         .long_name = NULL,
         .rc_name = "ignore_classes",
-        .references = { (void *) &settings.ignored_classes },
+        .struct_offset = offsetof(struct Settings, ignored_classes),
 
         .pass = 1,
 
@@ -1245,15 +1175,14 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_ignored_classes
-    },
+        .parser = (param_parser_t)&parse_ignored_classes,
+        .reloadable = True},
 
 #ifdef DELAY_EMBEDDING_CONFIRMATION
-    {
-        .short_name = NULL,
+    {.short_name = NULL,
         .long_name = "--confirmation-delay",
         .rc_name = "confirmation_delay",
-        .references = { (void *) &settings.confirmation_delay },
+        .struct_offset = offsetof(struct Settings, confirmation_delay),
 
         .pass = 1,
 
@@ -1263,16 +1192,14 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_int
-    },
+        .parser = (param_parser_t)&parse_int},
 #endif
 
 #ifdef _ST_WITH_XPM
-    {
-        .short_name = NULL,
+    {.short_name = NULL,
         .long_name = "--pixmap-bg",
         .rc_name = "pixmap_bg",
-        .references = { (void *) &settings.bg_pmap_path },
+        .struct_offset = offsetof(struct Settings, bg_pmap_path),
 
         .pass = 1,
 
@@ -1282,9 +1209,14 @@ struct Param params[] = {
         .default_argc = 0,
         .default_argv = NULL,
 
-        .parser = (param_parser_t) &parse_copystr
-    },
+        .parser = (param_parser_t)&parse_copystr,
+        .reloadable = True},
 #endif
+    /* Explicit sentinel: the loop `for (p = params; p->parser != NULL; ...)`
+     * needs a terminator. Trailing zeroed memory used to do the trick, but
+     * tools like AddressSanitizer surround globals with redzones and trip on
+     * the read past the last entry. */
+    {.parser = NULL},
 };
 
 void usage(char *progname)
@@ -1431,9 +1363,14 @@ void usage(char *progname)
         "\n");
 }
 
-/* Parse command line parameters */
+/* Parse command line parameters.
+ *
+ * Same self-tracking pattern as parse_rc: a static `reloading` flag flips on
+ * after the first call so subsequent invocations skip non-reloadable params
+ * and don't re-strdup values we'd never adopt. */
 int parse_cmdline(int argc, char **argv, int pass)
 {
+    static int reloading = 0;
     struct Param *p, *match;
     char *progname = argv[0];
     const char **p_argv = NULL, *argbuf[MAX_DEFAULT_ARGS];
@@ -1501,6 +1438,12 @@ int parse_cmdline(int argc, char **argv, int pass)
 
         if (match == NULL) USAGE_AND_DIE();
         if (match->pass != pass) continue;
+        if (reloading && !match->reloadable) {
+            LOG_TRACE(("cmdline: skipping non-reloadable param \"%s\"\n",
+                match->long_name != NULL ? match->long_name
+                                         : match->short_name));
+            continue;
+        }
         if (p_argv == NULL) DIE_IE(("Argument cannot be NULL!\n"));
 
         LOG_TRACE(("cmdline: pass %d, param \"%s\", args: [", pass, match->long_name != NULL ? match->long_name : match->short_name));
@@ -1510,10 +1453,10 @@ int parse_cmdline(int argc, char **argv, int pass)
 
         LOG_TRACE(("\"%s\"]\n", p_argv[p_argc - 1]));
 
-        if (!match->parser(p_argc, p_argv, match->references, match->min_argc == 0)) {
+        if (!match->parser(p_argc, p_argv, match->struct_offset, match->min_argc == 0)) {
             if (match->min_argc == 0) {
                 assert(p_argv != match->default_argv);
-                match->parser(match->default_argc, match->default_argv, match->references, False);
+                match->parser(match->default_argc, match->default_argv, match->struct_offset, False);
                 argc++;
                 argv--;
             } else
@@ -1526,6 +1469,8 @@ int parse_cmdline(int argc, char **argv, int pass)
         exit(0);
     }
 
+    /* From here on, subsequent calls behave as reloads. */
+    reloading = 1;
     return SUCCESS;
 }
 
@@ -1610,46 +1555,128 @@ int get_args(char *line, int *argc, char ***argv)
     return SUCCESS;
 }
 
+/* Locate a config file by joining the given path components and stat()ing
+ * the result. Returns a freshly-allocated path on success, NULL otherwise --
+ * the heap allocation keeps settings.config_fname uniformly heap-owned
+ * regardless of how it was populated. */
 char *find_rc(const char *path_part1, const char *path_part2, const char *rc)
 {
-    static char full_path[PATH_MAX];
+    char buf[PATH_MAX];
     int len;
     struct stat statbuf;
 
     if (path_part1 == NULL) return NULL;
     if (path_part2 == NULL) {
         LOG_TRACE(("looking for config file in '%s/%s'\n", path_part1, rc));
-        len = snprintf(full_path, sizeof(full_path), "%s/%s", path_part1, rc);
+        len = snprintf(buf, sizeof(buf), "%s/%s", path_part1, rc);
     } else {
         LOG_TRACE(("looking for config file in '%s/%s/%s'\n", path_part1,
             path_part2, rc));
-        len = snprintf(full_path, sizeof(full_path), "%s/%s/%s", path_part1,
-            path_part2, rc);
+        len = snprintf(buf, sizeof(buf), "%s/%s/%s", path_part1, path_part2, rc);
     }
 
-    if (len < 0 || (size_t) len >= sizeof(full_path)) return NULL;
-    if (stat(full_path, &statbuf) != 0) return NULL;
+    if (len < 0 || (size_t) len >= sizeof(buf)) return NULL;
+    if (stat(buf, &statbuf) != 0) return NULL;
 
-    return full_path;
+    return xstrdup(buf);
 }
 
 #define READ_BUF_SZ 512
-/* Parses rc file (path is either taken from settings.config_fname
- * or ~/.stalonetrayrc is used) */
-void parse_rc(void)
+
+/* Reports a parse error for the current rc-file line. On the first parse_rc
+ * call (startup load) it DIEs so misconfigured files surface loudly; on a
+ * subsequent call (a SIGHUP-driven reload) it only logs so a typo in a live
+ * edit can't take down the running tray. The caller decides what comes
+ * after a logged error -- usually setting rc = FAILURE and letting the
+ * surrounding parse loop unwind. */
+#define PARSE_ERROR(reloading, lnum, fmt, ...) \
+    do { \
+        if (reloading) { \
+            LOG_ERROR(("reload: %s:%d: " fmt, settings.config_fname, lnum, \
+                ##__VA_ARGS__)); \
+        } else { \
+            DIE(("Configuration file parse error at %s:%d: " fmt, \
+                settings.config_fname, lnum, ##__VA_ARGS__)); \
+        } \
+    } while (0)
+
+/* Parses a single rc-file line that has already been read into `buf`.
+ * Owns the lifetime of the argv that get_args() allocates. Returns SUCCESS
+ * for a valid directive (including one silently skipped on a reload because
+ * its param is non-reloadable), an empty line, or a comment-only line.
+ * Returns FAILURE only in reload mode after PARSE_ERROR has logged. */
+static int parse_rc_line(char *buf, int lnum, int reloading)
 {
-    FILE *cfg;
+    int argc, rc = SUCCESS;
+    char **argv = NULL;
+    struct Param *p, *match = NULL;
 
-    char buf[READ_BUF_SZ + 1];
+    if (!get_args(buf, &argc, &argv)) {
+        PARSE_ERROR(reloading, lnum, "could not parse line\n");
+        rc = FAILURE;
+    } else if (argc > 0) {
+        for (p = params; p->parser != NULL; p++)
+            if (p->rc_name != NULL && strcmp(argv[0], p->rc_name) == 0) {
+                match = p;
+                break;
+            }
+
+        if (match == NULL) {
+            PARSE_ERROR(reloading, lnum,
+                "unrecognized rc file keyword \"%s\".\n", argv[0]);
+            rc = FAILURE;
+        } else if (argc - 1 < match->min_argc
+            || (match->max_argc && argc - 1 > match->max_argc)) {
+            PARSE_ERROR(reloading, lnum,
+                "invalid number of args for \"%s\" (%d-%d required)\n",
+                match->rc_name, match->min_argc, match->max_argc);
+            rc = FAILURE;
+        } else if (reloading && !match->reloadable) {
+            LOG_TRACE(("rc: skipping non-reloadable param \"%s\"\n",
+                match->rc_name));
+        } else {
+            int p_argc = argc - 1;
+            const char **p_argv = (const char **) argv + 1;
+            if (p_argc == 0) {
+                p_argc = match->default_argc;
+                p_argv = match->default_argv;
+            }
+
+            LOG_TRACE(("rc: param \"%s\", args [\"", match->rc_name));
+            for (int i = 0; i < p_argc - 1; i++)
+                LOG_TRACE(("\"%s\", ", p_argv[i]));
+            LOG_TRACE(("\"%s\"]\n", p_argv[p_argc - 1]));
+
+            if (!match->parser(
+                    p_argc, p_argv, match->struct_offset, False)) {
+                PARSE_ERROR(reloading, lnum,
+                    "could not parse argument for \"%s\".\n", argv[0]);
+                rc = FAILURE;
+            }
+        }
+    }
+
+    free(argv);
+    return rc;
+}
+
+/* Parses the active rc file into *parse_target.
+ *
+ * Tracks whether this is the first call ("loading") or a subsequent one
+ * ("reloading") via a static flag so the function can apply slightly
+ * different behavior on a SIGHUP-driven reload without leaking that detail
+ * into the public API. On reloads we (a) skip params with reloadable == 0
+ * inside parse_rc_line(), and (b) downgrade fatal errors to a logged
+ * FAILURE so a malformed live edit doesn't take down the tray. The first
+ * load preserves the original strict behavior and DIEs on errors. */
+int parse_rc(void)
+{
+    static int reloading = 0;
+    FILE *cfg = NULL;
+    int rc = SUCCESS;
     int lnum = 0;
+    char buf[READ_BUF_SZ + 1];
 
-    int argc, p_argc;
-    char **argv;
-    const char **p_argv;
-
-    struct Param *p, *match;
-
-    /* 1. Setup file name */
     if (settings.config_fname == NULL)
         settings.config_fname =
             find_rc(getenv("HOME"), NULL, "." STALONETRAY_RC);
@@ -1659,86 +1686,34 @@ void parse_rc(void)
     if (settings.config_fname == NULL)
         settings.config_fname =
             find_rc(getenv("HOME"), ".config", STALONETRAY_RC);
+
     if (settings.config_fname == NULL) {
         LOG_INFO(("could not find any config files.\n"));
-        return;
-    }
-
-    LOG_INFO(("using config file \"%s\"\n", settings.config_fname));
-
-    /* 2. Open file */
-    cfg = fopen(settings.config_fname, "r");
-    if (cfg == NULL) {
+        /* On reload, treat a vanished config as a soft failure so the caller
+         * keeps the live settings instead of falling back to defaults. */
+        if (reloading) rc = FAILURE;
+    } else if ((cfg = fopen(settings.config_fname, "r")) == NULL) {
         LOG_ERROR(("could not open %s (%s)\n", settings.config_fname,
             strerror(errno)));
-        return;
-    }
-
-    /* 3. Read the file line by line */
-    buf[READ_BUF_SZ] = 0;
-    while (!feof(cfg)) {
-        lnum++;
-        if (fgets(buf, READ_BUF_SZ, cfg) == NULL) {
-            if (ferror(cfg)) LOG_ERROR(("read error (%s)\n", strerror(errno)));
-            break;
-        }
-
-        if (!get_args(buf, &argc, &argv)) {
-            DIE(("Configuration file parse error at %s:%d: could not parse "
-                 "line\n",
-                settings.config_fname, lnum));
-        }
-        if (!argc) continue; /* This is empty/comment-only line */
-
-        match = NULL;
-        p_argc = argc - 1;
-        p_argv = (const char **) argv + 1;
-
-        for (p = params; p->parser != NULL; p++) {
-            if (p->rc_name != NULL && strcmp(argv[0], p->rc_name) == 0) {
-                if (argc - 1 < p->min_argc || (p->max_argc && argc - 1 > p->max_argc)) {
-                    DIE(("Configuration file parse error at %s:%d: "
-                         "invalid number of args for \"%s\" (%d-%d required)\n",
-                        settings.config_fname, lnum,
-                        p->rc_name, p->min_argc, p->max_argc));
-                }
-
-                match = p;
-
-                if (p_argc == 0) {
-                    p_argc = match->default_argc;
-                    p_argv = match->default_argv;
-                }
-
+        if (reloading) rc = FAILURE;
+    } else {
+        LOG_INFO(("using config file \"%s\"\n", settings.config_fname));
+        buf[READ_BUF_SZ] = 0;
+        while (rc == SUCCESS && !feof(cfg)) {
+            lnum++;
+            if (fgets(buf, READ_BUF_SZ, cfg) == NULL) {
+                if (ferror(cfg))
+                    LOG_ERROR(("read error (%s)\n", strerror(errno)));
                 break;
             }
+            rc = parse_rc_line(buf, lnum, reloading);
         }
-
-        if (!match) {
-            DIE(("Configuration file parse error at %s:%d: unrecognized rc "
-                 "file keyword \"%s\".\n",
-                settings.config_fname, lnum, argv[0]));
-        }
-
-        assert(p_argv != NULL);
-
-        LOG_TRACE(("rc: param \"%s\", args [\"", match->rc_name));
-
-        for (int i = 0; i < p_argc - 1; i++)
-            LOG_TRACE(("\"%s\", ", p_argv[i]));
-
-        LOG_TRACE(("\"%s\"]\n", p_argv[p_argc - 1]));
-
-        if (!match->parser(p_argc, p_argv, match->references, False)) {
-            DIE(("Configuration file parse error at %s:%d: could not parse "
-                 "argument for \"%s\".\n",
-                settings.config_fname, lnum, argv[0]));
-        }
-
-        free(argv);
+        fclose(cfg);
     }
 
-    fclose(cfg);
+    /* From here on, the function behaves as a reload. */
+    reloading = 1;
+    return rc;
 }
 
 /* Interpret all settings that need an open display or other settings */
@@ -1883,6 +1858,132 @@ void interpret_settings(void)
         &tray_data.scrollbars_data.scroll_base.y);
     tray_data.scrollbars_data.scroll_base.x /= 2;
     tray_data.scrollbars_data.scroll_base.y /= 2;
+}
+
+void free_window_class_list(struct WindowClass *head)
+{
+    struct WindowClass *c, *next;
+    for (c = head; c != NULL; c = next) {
+        next = c->next;
+        free(c->name);
+        free(c);
+    }
+}
+
+int settings_reload(int argc, char **argv, struct Settings *out_old)
+{
+    /* Parse a fresh set of values into a scratch struct without touching the
+     * live settings yet. parse_target redirects every parser's writes here. */
+    struct Settings tmp = {0};
+    XColor tmp_color;
+    int ok;
+
+    parse_target = &tmp;
+    init_default_settings();
+    parse_cmdline(argc, argv, 0);
+    ok = parse_rc();
+    parse_target = &settings;
+    if (ok != SUCCESS) {
+        /* Syntax error / missing config / etc. tmp may be partially
+         * populated; free everything in it and leave the live settings
+         * untouched. */
+        free_settings(&tmp);
+        memset(out_old, 0, sizeof(*out_old));
+        return FAILURE;
+    }
+    parse_target = &tmp;
+    parse_cmdline(argc, argv, 1);
+    parse_target = &settings;
+
+    /* Snapshot live settings (shallow). out_old now aliases every live heap
+     * pointer; the transfers below carefully drop the aliases for fields we
+     * leave alone so the caller can free_settings(out_old) blindly. */
+    *out_old = settings;
+
+    /* Heap fields that are not reloadable stay in live `settings`; clear the
+     * aliases from out_old so free_settings(out_old) doesn't free strings
+     * still owned by `settings`. */
+    out_old->display_str = NULL;
+    out_old->geometry_str = NULL;
+    out_old->max_geometry_str = NULL;
+    out_old->config_fname = NULL;
+    out_old->icon_order_file = NULL;
+    out_old->remote_click_name = NULL;
+
+    /* For reloadable fields, move the freshly-parsed value from tmp into
+     * live settings. The pre-reload value (still aliased by out_old after
+     * the shallow snapshot above) is no longer referenced by `settings`, so
+     * the caller's free_settings(out_old) is what releases it. */
+#define ADOPT(f) \
+    do { \
+        settings.f = tmp.f; \
+        tmp.f = (__typeof__(tmp.f)) 0; \
+    } while (0)
+    ADOPT(log_level);
+    ADOPT(min_space_policy);
+    ADOPT(full_pmt_search);
+    ADOPT(shrink_back_mode);
+    ADOPT(kludge_flags);
+    ADOPT(scroll_everywhere);
+#ifdef _ST_WITH_XINERAMA
+    ADOPT(monitor);
+#endif
+    ADOPT(wm_strut_mode);
+    ADOPT(sticky);
+    ADOPT(skip_taskbar);
+    ADOPT(deco_flags);
+    ADOPT(fuzzy_edges);
+    ADOPT(tint_level);
+    ADOPT(transparent);
+    ADOPT(parent_bg);
+    ADOPT(bg_pmap_path);
+    ADOPT(bg_color_str);
+    ADOPT(tint_color_str);
+    ADOPT(scrollbars_highlight_color_str);
+    ADOPT(wnd_name);
+    ADOPT(wnd_layer);
+    ADOPT(wnd_type);
+    ADOPT(ignored_classes);
+#undef ADOPT
+
+    /* Discard non-reloadable values tmp accumulated (e.g. defaults assigned
+     * by init_default_settings or cmdline overrides parse_cmdline let
+     * through before the reloading flag flipped on the first call). */
+    free_settings(&tmp);
+
+    /* Mirror interpret_settings()'s derivations for the fields we just
+     * adopted, so the apply step downstream sees a coherent state. */
+    val_range(settings.tint_level, 0, 255);
+    val_range(settings.fuzzy_edges, 0, 3);
+#ifdef _ST_WITH_XPM
+    settings.pixmap_bg = (settings.bg_pmap_path != NULL);
+#endif
+    if (settings.pixmap_bg) {
+        settings.parent_bg = False;
+        settings.transparent = False;
+    }
+    if (settings.transparent) settings.parent_bg = False;
+
+    /* Re-parse colors into a temporary first; on parse failure leave the
+     * old XColor in place so the tray doesn't end up with a garbage pixel.
+     * (Skip silently if no live display is available, e.g. inside tests.) */
+    if (tray_data.dpy != NULL) {
+        if (x11_parse_color(tray_data.dpy, settings.bg_color_str, &tmp_color))
+            settings.bg_color = tmp_color;
+        else
+            LOG_ERROR(("reload: could not parse background color \"%s\"\n",
+                settings.bg_color_str));
+        if (settings.tint_level
+            && x11_parse_color(
+                tray_data.dpy, settings.tint_color_str, &tmp_color))
+            settings.tint_color = tmp_color;
+        if (settings.scrollbars_highlight_color_str != NULL
+            && x11_parse_color(tray_data.dpy,
+                settings.scrollbars_highlight_color_str, &tmp_color))
+            settings.scrollbars_highlight_color = tmp_color;
+    }
+
+    return SUCCESS;
 }
 
 /************** "main" ***********/

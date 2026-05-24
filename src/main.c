@@ -40,8 +40,11 @@
 #include "tray.h"
 #include "xinerama.h"
 
-struct TrayData tray_data;
 static int tray_status_requested = 0;
+static int settings_reload_requested = 0;
+/* Stashed at main() so SIGHUP reloads can re-apply the original cmdline. */
+static int reload_argc = 0;
+static char **reload_argv = NULL;
 #ifdef _ST_EXIT_GRACEFULLY
 static Display *async_dpy;
 #endif
@@ -62,6 +65,13 @@ void my_usleep(useconds_t usec)
 void request_tray_status_on_signal(int)
 {
     tray_status_requested = 1;
+}
+
+void request_settings_reload_on_signal(int)
+{
+    /* Do the actual work in the event loop; only async-signal-safe writes are
+     * allowed here. */
+    settings_reload_requested = 1;
 }
 
 #ifdef _ST_EXIT_GRACEFULLY
@@ -366,6 +376,8 @@ void find_unmanaged_chromium_icons()
 #define PT_MASK_SB (1L << 0)
 #define PT_MASK_ALL PT_MASK_SB
 
+static void handle_settings_reload(void);
+
 /* Perform several periodic tasks */
 void perform_periodic_tasks(int mask)
 {
@@ -396,6 +408,8 @@ void perform_periodic_tasks(int mask)
     if (mask & PT_MASK_SB) scrollbars_periodic_tasks();
     /* 5. close the icon-order restore window once its timeout elapses */
     order_periodic();
+    /* 6. process a SIGHUP-triggered config reload, if one was requested */
+    handle_settings_reload();
 }
 
 /**********************
@@ -783,6 +797,179 @@ void unmap_notify(XUnmapEvent ev)
     }
 }
 
+/* NULL-safe string comparison: treats two NULLs as equal, NULL vs non-NULL as
+ * unequal. Used by the settings_reload apply step where wnd_layer/wnd_type/
+ * etc. can legitimately be NULL. */
+static int str_diff(const char *a, const char *b)
+{
+    if (a == NULL && b == NULL) return 0;
+    if (a == NULL || b == NULL) return 1;
+    return strcmp(a, b);
+}
+
+/* Remove every icon whose WM_CLASS now matches an entry in
+ * settings.ignored_classes. Newly-docking icons are handled by the existing
+ * is_ignored_class check in add_icon; this catches the icons that were
+ * already in the tray when the user added their class to the ignore list. */
+static void apply_reload_ignored_classes(void)
+{
+    struct TrayIcon *ti, *next;
+    char *classname;
+    for (ti = icons_head; ti != NULL; ti = next) {
+        next = ti->next;
+        classname = x11_get_window_class(tray_data.dpy, ti->wid);
+        if (classname == NULL) continue;
+        if (is_ignored_class(classname)) {
+            LOG_INFO(("removing icon 0x%lx: its class \"%s\" is now ignored\n",
+                ti->wid, classname));
+            remove_icon(ti->wid);
+        }
+        free(classname);
+    }
+}
+
+/* Has anything that feeds into tray_update_bg() changed? */
+static int bg_settings_changed(const struct Settings *old)
+{
+    return old->parent_bg != settings.parent_bg
+        || old->transparent != settings.transparent
+        || old->pixmap_bg != settings.pixmap_bg
+        || old->fuzzy_edges != settings.fuzzy_edges
+        || old->tint_level != settings.tint_level
+        || str_diff(old->bg_color_str, settings.bg_color_str) != 0
+        || str_diff(old->tint_color_str, settings.tint_color_str) != 0
+        || str_diff(old->bg_pmap_path, settings.bg_pmap_path) != 0;
+}
+
+/* Replace the tray's WM_NAME with the (possibly new) settings.wnd_name. */
+static void apply_reload_wnd_name(void)
+{
+    XTextProperty wm_name;
+    if (XmbTextListToTextProperty(tray_data.dpy, &settings.wnd_name, 1,
+            XTextStyle, &wm_name)
+        != Success) {
+        LOG_ERROR(("reload: invalid window name \"%s\"\n", settings.wnd_name));
+        return;
+    }
+    XSetWMName(tray_data.dpy, tray_data.tray, &wm_name);
+    XFree(wm_name.value);
+}
+
+/* Replace _NET_WM_WINDOW_TYPE wholesale. tray_set_wm_hints uses
+ * PropModeAppend, so calling it repeatedly on reload would accumulate atoms;
+ * clear the property first and re-add the (user_type, NORMAL) pair fresh. */
+static void apply_reload_wnd_type(void)
+{
+    Atom prop = XInternAtom(tray_data.dpy, "_NET_WM_WINDOW_TYPE", False);
+    XDeleteProperty(tray_data.dpy, tray_data.tray, prop);
+    if (strcmp(settings.wnd_type, _NET_WM_WINDOW_TYPE_NORMAL) != 0)
+        ewmh_add_window_type(
+            tray_data.dpy, tray_data.tray, settings.wnd_type);
+    ewmh_add_window_type(
+        tray_data.dpy, tray_data.tray, _NET_WM_WINDOW_TYPE_NORMAL);
+}
+
+/* Re-apply MWM decoration hints. mwm_set_hints uses PropModeReplace so this
+ * is just a straight re-call (unlike the EWMH state functions). */
+static void apply_reload_deco_flags(void)
+{
+    int mwm_decor = 0;
+    if (settings.deco_flags & DECO_TITLE)
+        mwm_decor |= MWM_DECOR_TITLE | MWM_DECOR_MENU;
+    if (settings.deco_flags & DECO_BORDER)
+        mwm_decor |= MWM_DECOR_RESIZEH | MWM_DECOR_BORDER;
+    mwm_set_hints(
+        tray_data.dpy, tray_data.tray, mwm_decor, MWM_FUNC_ALL);
+}
+
+/* Apply each piece of the reload that needs an actual side-effect, gated on
+ * "did this actually change since before the reload". */
+static void apply_settings_reload(const struct Settings *old)
+{
+#ifdef _ST_WITH_XINERAMA
+    if (old->monitor != settings.monitor && tray_data.xinerama_active) {
+        xinerama_update_geometry();
+        XMoveWindow(tray_data.dpy, tray_data.tray, tray_data.xsh.x,
+            tray_data.xsh.y);
+        tray_update_window_strut();
+    }
+#endif
+
+    /* Walk every reload, even when the list looks unchanged: a config edit
+     * is the only reason we got here and the cost is one X round-trip per
+     * icon. */
+    apply_reload_ignored_classes();
+
+    if (bg_settings_changed(old)) {
+        tray_update_bg(True);
+        tray_refresh_window(True);
+    }
+
+    if (old->wm_strut_mode != settings.wm_strut_mode)
+        tray_update_window_strut();
+
+    if (str_diff(old->wnd_name, settings.wnd_name) != 0)
+        apply_reload_wnd_name();
+
+    if (old->sticky != settings.sticky) {
+        if (settings.sticky)
+            ewmh_add_window_state(
+                tray_data.dpy, tray_data.tray, _NET_WM_STATE_STICKY);
+        else
+            ewmh_remove_window_state(
+                tray_data.dpy, tray_data.tray, _NET_WM_STATE_STICKY);
+    }
+
+    if (old->skip_taskbar != settings.skip_taskbar) {
+        if (settings.skip_taskbar)
+            ewmh_add_window_state(tray_data.dpy, tray_data.tray,
+                _NET_WM_STATE_SKIP_TASKBAR);
+        else
+            ewmh_remove_window_state(tray_data.dpy, tray_data.tray,
+                _NET_WM_STATE_SKIP_TASKBAR);
+    }
+
+    if (str_diff(old->wnd_layer, settings.wnd_layer) != 0) {
+        if (old->wnd_layer != NULL)
+            ewmh_remove_window_state(
+                tray_data.dpy, tray_data.tray, old->wnd_layer);
+        if (settings.wnd_layer != NULL)
+            ewmh_add_window_state(
+                tray_data.dpy, tray_data.tray, settings.wnd_layer);
+    }
+
+    if (str_diff(old->wnd_type, settings.wnd_type) != 0)
+        apply_reload_wnd_type();
+
+    if (old->deco_flags != settings.deco_flags)
+        apply_reload_deco_flags();
+
+    if (str_diff(old->scrollbars_highlight_color_str,
+            settings.scrollbars_highlight_color_str)
+        != 0)
+        scrollbars_update();
+}
+
+static void handle_settings_reload(void)
+{
+    struct Settings old;
+    if (!settings_reload_requested) return;
+    settings_reload_requested = 0;
+    LOG_INFO(("reloading configuration\n"));
+    if (settings_reload(reload_argc, reload_argv, &old) != SUCCESS) {
+        LOG_ERROR(("reload aborted; keeping current settings\n"));
+        /* On failure settings_reload zeroed *out_old, so this is a no-op. */
+        free_settings(&old);
+        return;
+    }
+    apply_settings_reload(&old);
+    /* Releases the pre-reload heap content that settings_reload handed back
+     * via out_old: reloadable strings + the old ignored_classes list. The
+     * non-reloadable string slots in `old` were cleared by settings_reload
+     * since they still alias the live `settings`. */
+    free_settings(&old);
+}
+
 /*********************************************************/
 /* main() for usual operation */
 int tray_main(int argc, char **argv)
@@ -973,9 +1160,14 @@ int main(int argc, char **argv)
     /* Read settings */
     tray_init();
     read_settings(argc, argv);
+    /* Stash for SIGHUP-triggered reloads: argv is valid for the lifetime of
+     * the process. */
+    reload_argc = argc;
+    reload_argv = argv;
     /* Register cleanup and signal handlers */
     atexit(cleanup);
     signal(SIGUSR1, &request_tray_status_on_signal);
+    signal(SIGHUP, &request_settings_reload_on_signal);
 #ifdef _ST_EXIT_GRACEFULLY
     signal(SIGINT, &exit_on_signal);
     signal(SIGTERM, &exit_on_signal);

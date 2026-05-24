@@ -99,6 +99,14 @@ executable(
   install: true,
 )
 
+# == Tests =====================================================================
+
+cmocka_dep = dependency('cmocka', required: get_option('tests'))
+
+if cmocka_dep.found()
+  subdir('tests')
+endif
+
 # == Documentation =============================================================
 
 gen_manpage = find_program('generate-manpage.sh')

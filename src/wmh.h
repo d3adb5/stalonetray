@@ -81,6 +81,8 @@ typedef unsigned long wm_strut_t[_NET_WM_STRUT_PARTIAL_SZ];
 int ewmh_wm_present(Display *dpy);
 /* Add window type for the window wnd */
 int ewmh_add_window_state(Display *dpy, Window wnd, char *state);
+/* Remove a previously-added window state */
+int ewmh_remove_window_state(Display *dpy, Window wnd, char *state);
 /* Add window type for the window wnd */
 int ewmh_add_window_type(Display *dpy, Window wnd, char *type);
 /* Set data for _NET_WM_STRUT_PARTIAL hint */

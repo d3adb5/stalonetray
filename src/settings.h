@@ -106,11 +106,42 @@ struct Settings {
 
 extern struct Settings settings;
 
+/* Populate the active settings target (`settings` by default) with default
+ * values, allocating any string defaults on the heap so ownership is
+ * uniform. Safe to call repeatedly; existing heap content is freed first. */
+void init_default_settings(void);
 /* Read settings from cmd line and configuration file */
 int read_settings(int argc, char **argv);
+/* Parse the rc file at settings.config_fname (or the default search path if
+ * NULL) into the active settings target. Returns SUCCESS / FAILURE; on the
+ * first call a syntax error DIEs, on later calls it logs and returns
+ * FAILURE. Exposed for testing -- normal code goes through read_settings or
+ * settings_reload. */
+int parse_rc(void);
 /* Interpret all settings that either need an
  * open display or are interpreted from other
  * settings */
 void interpret_settings();
+/* Free a linked list of WindowClass entries (each name and node). */
+void free_window_class_list(struct WindowClass *head);
+/* Release every heap-owned string in *s and the ignored_classes list, and
+ * zero the struct. Safe on a zero-initialized struct (free(NULL) is a no-op).
+ */
+void free_settings(struct Settings *s);
+/* Re-read the configuration file (and re-apply the original command line)
+ * to pick up changes made at runtime. Most settings are silently restored to
+ * their pre-reload value: only a curated subset (entries with reloadable == 1
+ * in settings.c's params[]) is adopted from the freshly parsed config.
+ *
+ * On success, returns SUCCESS and *out_old holds the pre-reload settings
+ * (shallow copy) for the caller to diff against the now-live settings and
+ * run any apply steps; the caller is also responsible for freeing
+ * out_old->ignored_classes once it has finished with it.
+ *
+ * On failure (parse error in the config file, or the file is gone), settings
+ * is restored to exactly what it was before the call, *out_old is left in a
+ * state where freeing out_old->ignored_classes is a safe no-op, and FAILURE
+ * is returned. The caller should skip the apply step. */
+int settings_reload(int argc, char **argv, struct Settings *out_old);
 
 #endif
