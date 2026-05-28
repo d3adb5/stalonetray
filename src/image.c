@@ -301,5 +301,7 @@ int image_compose_15(CARD16 *data, CARD16 *bg, CARD8 *mask, size_t len)
         *p = ((r >> 8) & 0x7c00) | ((g >> 8) & 0x3e0) | ((b >> 8) & 0x1f);
     }
 
+    (void) *m; /* unused */
+
     return SUCCESS;
 }

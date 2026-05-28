@@ -1182,7 +1182,7 @@ int main(int argc, char **argv)
     if ((async_dpy = XOpenDisplay(settings.display_str)) == NULL)
         DIE(("could not open display\n"));
     else
-        LOG_TRACE(("Opened async dpy %p\n", async_dpy));
+        LOG_TRACE(("Opened async dpy %p\n", (void *) async_dpy));
 #endif
     if (settings.xsync) XSynchronize(tray_data.dpy, True);
     x11_trap_errors();
