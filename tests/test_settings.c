@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <setjmp.h> /* cmocka requires this before <cmocka.h> */
@@ -17,6 +18,11 @@
 
 #include "../src/settings.h"
 #include "../src/tray.h"
+
+/* Resolves to the LeakSanitizer hook under -fsanitize=address and to NULL
+ * otherwise, so the forked children below can opt out of leak reporting
+ * (they exit via _exit/exit without unwinding). */
+extern void __lsan_disable(void) __attribute__((weak));
 
 /* Helper: write a temp rc file with the given body and point
  * settings.config_fname at it. Caller is responsible for unlink+free via
@@ -293,9 +299,121 @@ static void test_parse_rc_ignores_comments_and_blank_lines(void **state)
     assert_int_equal(settings.tint_level, 5);
 }
 
+/* --------------------------------------------------------------- parse_cmdline */
+
+/* Run parse_cmdline over `argv` in a child process. parse_cmdline calls
+ * usage()+exit() on a bad option, so a child keeps that from taking down the
+ * test runner. The child's stderr (where the error message lands; usage()
+ * goes to stdout, discarded) is captured into `err`. Returns the child's exit
+ * status: 255 for the exit(-1) inside DIE, 0 for a clean parse. */
+static int run_cmdline(int argc, char **argv, char *err, size_t errsz)
+{
+    int fds[2];
+    pid_t pid;
+    ssize_t n;
+    int status = 0;
+
+    assert_int_equal(pipe(fds), 0);
+    pid = fork();
+    assert_true(pid >= 0);
+
+    if (pid == 0) {
+        if (__lsan_disable) __lsan_disable();
+        dup2(fds[1], STDERR_FILENO);
+        freopen("/dev/null", "w", stdout);
+        close(fds[0]);
+        close(fds[1]);
+        init_default_settings();
+        parse_cmdline(argc, argv, 0);
+        parse_cmdline(argc, argv, 1);
+        _exit(0);
+    }
+
+    close(fds[1]);
+    n = read(fds[0], err, errsz - 1);
+    err[n > 0 ? n : 0] = '\0';
+    close(fds[0]);
+    waitpid(pid, &status, 0);
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+static void test_cmdline_unknown_long_option(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--no-such-flag", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(2, argv, err, sizeof(err)), 255);
+    assert_non_null(strstr(err, "unknown command line option"));
+    assert_non_null(strstr(err, "--no-such-flag"));
+}
+
+static void test_cmdline_unknown_short_option(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "-Q", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(2, argv, err, sizeof(err)), 255);
+    assert_non_null(strstr(err, "unknown command line option"));
+    assert_non_null(strstr(err, "-Q"));
+}
+
+static void test_cmdline_missing_required_argument(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--background", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(2, argv, err, sizeof(err)), 255);
+    assert_non_null(strstr(err, "expects an argument"));
+    assert_non_null(strstr(err, "--background"));
+}
+
+static void test_cmdline_help_exits_zero(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--help", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(2, argv, err, sizeof(err)), 0);
+}
+
+static void test_cmdline_separate_value_is_consumed(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--background",
+        (char *) "red", (char *) "--help", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(4, argv, err, sizeof(err)), 0);
+}
+
+static void test_cmdline_inline_value(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--monitor=2",
+        (char *) "--help", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(3, argv, err, sizeof(err)), 0);
+}
+
+static void test_cmdline_optional_arg_hands_back_bad_token(void **state)
+{
+    (void) state;
+    char *argv[] = {(char *) "stalonetray", (char *) "--transparent",
+        (char *) "notabool", NULL};
+    char err[1024];
+    assert_int_equal(run_cmdline(3, argv, err, sizeof(err)), 255);
+    assert_non_null(strstr(err, "unknown command line option"));
+    assert_non_null(strstr(err, "notabool"));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_cmdline_unknown_long_option),
+        cmocka_unit_test(test_cmdline_unknown_short_option),
+        cmocka_unit_test(test_cmdline_missing_required_argument),
+        cmocka_unit_test(test_cmdline_help_exits_zero),
+        cmocka_unit_test(test_cmdline_separate_value_is_consumed),
+        cmocka_unit_test(test_cmdline_inline_value),
+        cmocka_unit_test(test_cmdline_optional_arg_hands_back_bad_token),
         cmocka_unit_test_setup_teardown(
             test_init_default_settings_strdups_strings, reset_settings,
             teardown_settings),

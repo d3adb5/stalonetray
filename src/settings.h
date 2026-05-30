@@ -118,6 +118,10 @@ int read_settings(int argc, char **argv);
  * FAILURE. Exposed for testing -- normal code goes through read_settings or
  * settings_reload. */
 int parse_rc(void);
+/* Parse one command-line pass into the active settings target. An unknown
+ * option, a missing required value, or an unparseable value prints the usage
+ * and exits. Exposed for testing -- normal code goes through read_settings. */
+int parse_cmdline(int argc, char **argv, int pass);
 /* Interpret all settings that either need an
  * open display or are interpreted from other
  * settings */

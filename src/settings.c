@@ -10,7 +10,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <libgen.h>
@@ -522,8 +521,8 @@ struct Param {
     const int pass; /* 0th pass parameters are parsed before rc file, */
                     /* 1st pass parameters are parsed after it */
 
-    const int min_argc; /* minimum number of expected arguments */
-    const int max_argc; /* maximum number of expected arguments, 0 for unlimited */
+    const int min_argc; /* minimum number of values the parameter requires */
+    const int max_argc; /* maximum values: 0 = none (flag), -1 = unlimited */
 
     const int default_argc;                     /* number of default arguments, if present */
     const char *default_argv[MAX_DEFAULT_ARGS]; /* default arguments if none are given */
@@ -1170,7 +1169,7 @@ struct Param params[] = {
         .pass = 1,
 
         .min_argc = 1,
-        .max_argc = 0,
+        .max_argc = -1,
 
         .default_argc = 0,
         .default_argv = NULL,
@@ -1363,105 +1362,119 @@ void usage(char *progname)
         "\n");
 }
 
-/* Parse command line parameters.
+/* Find the params[] entry a command-line token selects, or NULL if none.
  *
- * Same self-tracking pattern as parse_rc: a static `reloading` flag flips on
- * after the first call so subsequent invocations skip non-reloadable params
- * and don't re-strdup values we'd never adopt. */
+ * Flags (max_argc 0) match by exact name. Value options match by name prefix
+ * so an attached value is recognized -- a short option carries it directly
+ * (-s8), a long one after '=' (--geometry=x) -- in which case *inline_val is
+ * pointed at it; otherwise *inline_val is NULL and the value, if any, is the
+ * following token. rc-only params have no command-line names and never match,
+ * which is what keeps an unknown option from being compared against a NULL
+ * name. */
+static struct Param *cmdline_match(const char *arg, const char **inline_val)
+{
+    struct Param *p;
+    *inline_val = NULL;
+
+    for (p = params; p->parser != NULL; p++) {
+        size_t slen = p->short_name != NULL ? strlen(p->short_name) : 0;
+        size_t llen = p->long_name != NULL ? strlen(p->long_name) : 0;
+        int is_short = slen != 0 && strncmp(arg, p->short_name, slen) == 0;
+        int is_long = llen != 0 && strncmp(arg, p->long_name, llen) == 0;
+
+        if (!is_short && !is_long)
+            continue;
+
+        if (p->max_argc == 0) {
+            if ((is_short && arg[slen] == 0) || (is_long && arg[llen] == 0))
+                return p;
+            continue;
+        }
+
+        if (is_short) {
+            if (arg[slen] != '\0')
+                *inline_val = arg + slen;
+            return p;
+        }
+
+        if (arg[llen] == '=')
+            *inline_val = arg + llen + 1;
+        else if (arg[llen] != '\0')
+            continue;
+
+        return p;
+    }
+
+    return NULL;
+}
+
+/* Parse one command-line pass.
+ *
+ * Each token is matched to a params[] entry; an unknown one prints the usage
+ * and exits. The option's value (an attached value, the next token, or its
+ * default) is resolved -- and any separate value token consumed -- before the
+ * pass/reload filters, so the value of an option belonging to the other pass
+ * is not mistaken for an option here. An option whose argument is optional and
+ * whose grabbed token fails to parse hands that token back for the loop to
+ * reconsider. A missing required value, or any other parse failure, exits.
+ *
+ * A static flag makes every call after the first behave as a reload, skipping
+ * non-reloadable options so their values are not re-parsed. */
 int parse_cmdline(int argc, char **argv, int pass)
 {
     static int reloading = 0;
-    struct Param *p, *match;
     char *progname = argv[0];
-    const char **p_argv = NULL, *argbuf[MAX_DEFAULT_ARGS];
-    int p_argc;
+    const char *slot[1];
 
     while (--argc > 0) {
-        argv++;
-        match = NULL;
-        for (p = params; p->parser != NULL; p++) {
-            if (p->max_argc) {
-                if (p->short_name != NULL && strstr(*argv, p->short_name) == *argv) {
-                    if ((*argv)[strlen(p->short_name)] != '\0') { /* accept arguments in the form -a5 */
-                        argbuf[0] = *argv + strlen(p->short_name);
-                        p_argc = 1;
-                        p_argv = argbuf;
-                    } else if (argc > 1 && argv[1][0] != '-') { /* accept arguments in the form -a 5, do not accept values starting with '-' */
-                        argbuf[0] = *(++argv);
-                        p_argc = 1;
-                        p_argv = argbuf;
-                        argc--;
-                    } else if (p->min_argc > 0) { /* argument is missing */
-                        LOG_ERROR(("%s expects an argument\n", p->short_name));
-                        break;
-                    } else { /* argument is optional, use default value */
-                        p_argc = p->default_argc;
-                        p_argv = p->default_argv;
-                    }
-                } else if (p->long_name != NULL && strstr(*argv, p->long_name) == *argv) {
-                    if ((*argv)[strlen(p->long_name)] == '=') {/* accept arguments in the form --abcd=5 */
-                        argbuf[0] = *argv + strlen(p->long_name) + 1;
-                        p_argc = 1;
-                        p_argv = argbuf;
-                    } else if ((*argv)[strlen(p->long_name)] == '\0') { /* accept arguments in the from --abcd 5 */
-                        if (argc > 1 && argv[1][0] != '-') { /* arguments cannot start with the dash */
-                            argbuf[0] = *(++argv);
-                            p_argc = 1;
-                            p_argv = argbuf;
-                            argc--;
-                        } else if (p->min_argc > 0) { /* argument is missing */
-                            LOG_ERROR(("%s expects an argument\n", p->long_name));
-                            break;
-                        } else { /* argument is optional, use default value */
-                            p_argc = p->default_argc;
-                            p_argv = p->default_argv;
-                        }
-                    } else
-                        continue; /* just in case when there can be both --abc and --abcd */
-                } else
-                    continue;
-                match = p;
-                break;
-            } else if (strcmp(*argv, p->short_name) == 0 || strcmp(*argv, p->long_name) == 0) {
-                match = p;
-                p_argc = p->default_argc;
-                p_argv = p->default_argv;
-                break;
-            }
+        char *arg = *(++argv);
+        const char *inline_val;
+        struct Param *match = cmdline_match(arg, &inline_val);
+        const char **values = NULL;
+        int count = 0, took_next = 0;
+
+        if (match == NULL) {
+            usage(progname);
+            DIE(("unknown command line option \"%s\"\n", arg));
         }
 
-#define USAGE_AND_DIE() \
-    do { \
-        usage(progname); \
-        DIE(("Could not parse command line\n")); \
-    } while (0)
+        if (inline_val != NULL) {
+            slot[0] = inline_val;
+            values = slot;
+            count = 1;
+        } else if (match->max_argc != 0 && argc > 1 && argv[1][0] != '-') {
+            slot[0] = *(++argv);
+            argc--;
+            took_next = 1;
+            values = slot;
+            count = 1;
+        } else if (match->min_argc > 0) {
+            usage(progname);
+            DIE(("%s expects an argument\n", arg));
+        } else {
+            values = match->default_argv;
+            count = match->default_argc;
+        }
 
-        if (match == NULL) USAGE_AND_DIE();
         if (match->pass != pass) continue;
-        if (reloading && !match->reloadable) {
-            LOG_TRACE(("cmdline: skipping non-reloadable param \"%s\"\n",
-                match->long_name != NULL ? match->long_name
-                                         : match->short_name));
+        if (reloading && !match->reloadable) continue;
+
+        LOG_TRACE(("cmdline: pass %d, option \"%s\"\n", pass, arg));
+
+        if (match->parser(
+                count, values, match->struct_offset, match->min_argc == 0))
+            continue;
+
+        if (match->min_argc == 0 && took_next) {
+            match->parser(match->default_argc, match->default_argv,
+                match->struct_offset, False);
+            argc++;
+            argv--;
             continue;
         }
-        if (p_argv == NULL) DIE_IE(("Argument cannot be NULL!\n"));
 
-        LOG_TRACE(("cmdline: pass %d, param \"%s\", args: [", pass, match->long_name != NULL ? match->long_name : match->short_name));
-
-        for (int i = 0; i < p_argc - 1; i++)
-            LOG_TRACE(("\"%s\", ", p_argv[i]));
-
-        LOG_TRACE(("\"%s\"]\n", p_argv[p_argc - 1]));
-
-        if (!match->parser(p_argc, p_argv, match->struct_offset, match->min_argc == 0)) {
-            if (match->min_argc == 0) {
-                assert(p_argv != match->default_argv);
-                match->parser(match->default_argc, match->default_argv, match->struct_offset, False);
-                argc++;
-                argv--;
-            } else
-                USAGE_AND_DIE();
-        }
+        usage(progname);
+        DIE(("could not parse argument for \"%s\"\n", arg));
     }
 
     if (settings.need_help) {
@@ -1469,7 +1482,6 @@ int parse_cmdline(int argc, char **argv, int pass)
         exit(0);
     }
 
-    /* From here on, subsequent calls behave as reloads. */
     reloading = 1;
     return SUCCESS;
 }
@@ -1626,7 +1638,7 @@ static int parse_rc_line(char *buf, int lnum, int reloading)
                 "unrecognized rc file keyword \"%s\".\n", argv[0]);
             rc = FAILURE;
         } else if (argc - 1 < match->min_argc
-            || (match->max_argc && argc - 1 > match->max_argc)) {
+            || (match->max_argc >= 0 && argc - 1 > match->max_argc)) {
             PARSE_ERROR(reloading, lnum,
                 "invalid number of args for \"%s\" (%d-%d required)\n",
                 match->rc_name, match->min_argc, match->max_argc);
