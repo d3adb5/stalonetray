@@ -40,8 +40,8 @@
 #include "tray.h"
 #include "xinerama.h"
 
-static int tray_status_requested = 0;
-static int settings_reload_requested = 0;
+static volatile sig_atomic_t tray_status_requested = 0;
+static volatile sig_atomic_t settings_reload_requested = 0;
 /* Stashed at main() so SIGHUP reloads can re-apply the original cmdline. */
 static int reload_argc = 0;
 static char **reload_argv = NULL;
