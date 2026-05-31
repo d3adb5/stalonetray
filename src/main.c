@@ -235,7 +235,7 @@ void remove_icon(Window w)
     struct TrayIcon *ti;
     /* Ignore false alarms */
     if ((ti = icon_list_find(w)) == NULL) return;
-    dump_tray_status();
+    if (settings.log_level >= LOG_LEVEL_TRACE) dump_tray_status();
     drag_forget_icon(ti);
     embedder_unembed(ti);
     xembed_unembed(ti);
@@ -250,7 +250,7 @@ void remove_icon(Window w)
     scrollbars_click(SB_WND_MAX);
     tray_update_window_props();
     order_save();
-    dump_tray_status();
+    if (settings.log_level >= LOG_LEVEL_TRACE) dump_tray_status();
 }
 
 /* Track icon visibility state changes */
