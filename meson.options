@@ -15,3 +15,5 @@ option('dump_window_information', type: 'boolean', value: false,
   description: 'Use xprop/xwininfo to dump icon window information')
 option('exit_gracefully', type: 'boolean', value: true,
   description: 'Use non-portable hack to exit gracefully on signal')
+option('tests', type: 'feature', value: 'auto',
+  description: 'Build unit tests (requires libcmocka)')

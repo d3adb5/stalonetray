@@ -31,6 +31,11 @@
 
 #include "debug.h"
 
+/* The single global state struct. Declared in tray.h. Defined here (rather
+ * than in main.c) so tests that link only core_sources get the definition
+ * too. */
+struct TrayData tray_data;
+
 void tray_init()
 {
     tray_data.tray = None;

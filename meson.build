@@ -1,7 +1,7 @@
 project(
   'stalonetray',
   'c',
-  version: '1.3.0',
+  version: '1.4.0',
   default_options: ['warning_level=3', 'c_std=gnu23'],
   meson_version: '>=1.1.0',
 )
@@ -98,6 +98,14 @@ executable(
   dependencies: _dependencies,
   install: true,
 )
+
+# == Tests =====================================================================
+
+cmocka_dep = dependency('cmocka', required: get_option('tests'))
+
+if cmocka_dep.found()
+  subdir('tests')
+endif
 
 # == Documentation =============================================================
 

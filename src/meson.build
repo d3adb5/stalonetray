@@ -1,21 +1,26 @@
-project_sources += [
-  'src/debug.c',
-  'src/drag.c',
-  'src/embed.c',
-  'src/icons.c',
-  'src/image.c',
-  'src/layout.c',
-  'src/main.c',
-  'src/order.c',
-  'src/scrollbars.c',
-  'src/settings.c',
-  'src/tray.c',
-  'src/wmh.c',
-  'src/xembed.c',
-  'src/xinerama.c',
-  'src/xutils.c',
-]
+# Everything but main.c: linked into both the stalonetray binary and the
+# unit-test binaries so we don't get two definitions of main(). Use files()
+# so the resulting File objects resolve regardless of the meson.build that
+# consumes them (tests/meson.build pulls these in too).
+core_sources = files(
+  'debug.c',
+  'drag.c',
+  'embed.c',
+  'icons.c',
+  'image.c',
+  'layout.c',
+  'order.c',
+  'scrollbars.c',
+  'settings.c',
+  'tray.c',
+  'wmh.c',
+  'xembed.c',
+  'xinerama.c',
+  'xutils.c',
+)
 
 if get_option('native_kde').enabled()
-  project_sources += ['src/kde_tray.c']
+  core_sources += files('kde_tray.c')
 endif
+
+project_sources += core_sources + [files('main.c')]

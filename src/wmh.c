@@ -83,6 +83,47 @@ int ewmh_add_window_state(Display *dpy, Window wnd, char *state)
     return rc;
 }
 
+/* Remove a previously-added EWMH window state */
+int ewmh_remove_window_state(Display *dpy, Window wnd, char *state)
+{
+    Atom prop;
+    Atom atom;
+    XWindowAttributes xwa;
+    int rc;
+    prop = XInternAtom(dpy, "_NET_WM_STATE", False);
+    atom = XInternAtom(dpy, state, False);
+    LOG_TRACE(("removing state %s from window 0x%lx\n", state, atom));
+    rc = XGetWindowAttributes(dpy, wnd, &xwa);
+    if (!x11_ok() || !rc) return FAILURE;
+
+    if (xwa.map_state != IsUnmapped && ewmh_wm_present(dpy)) {
+        return x11_send_client_msg32(
+            dpy, xwa.root, wnd, prop, _NET_WM_STATE_REMOVE, atom, 0, 0, 0);
+    }
+    /* No WM to ask; rewrite the property ourselves, dropping the atom. */
+    {
+        Atom *states = NULL, *kept = NULL;
+        unsigned long n = 0, kept_n = 0, i;
+        if (!x11_get_window_prop32(
+                dpy, wnd, prop, XA_ATOM, (unsigned char **) &states, &n))
+            return SUCCESS; /* property absent; nothing to remove */
+        if (n > 0) {
+            kept = malloc(n * sizeof(Atom));
+            if (kept == NULL) {
+                XFree(states);
+                return FAILURE;
+            }
+            for (i = 0; i < n; i++)
+                if (states[i] != atom) kept[kept_n++] = states[i];
+        }
+        XChangeProperty(dpy, wnd, prop, XA_ATOM, 32, PropModeReplace,
+            (unsigned char *) kept, (int) kept_n);
+        free(kept);
+        XFree(states);
+        return x11_ok();
+    }
+}
+
 /* Add EWMH window type for the given window */
 int ewmh_add_window_type(Display *dpy, Window wnd, char *type)
 {
