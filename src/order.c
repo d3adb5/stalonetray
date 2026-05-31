@@ -347,11 +347,17 @@ void order_place_icon(struct TrayIcon *ti)
     order.entries[idx].claimed = 1;
     order.entries[idx].claimed_wid = ti->wid;
     order.n_reclaimed++;
-    /* Splice ti ahead of the first icon that outranks it (gravity-placed icons
-     * rank INT_MAX, so restored icons cluster ahead of them in rank order). */
+    /* Splice ti ahead of the first ranked icon that outranks it. Ignored or
+     * gravity-placed icons (rank INT_MAX) are skipped so ti doesn't end up
+     * stuck in front of a phantom that arrived before any of the snapshot
+     * icons -- their rank is INT_MAX, INT_MAX > idx is trivially true, and
+     * the splice would otherwise drag ti to the very head of the list. */
     for (p = icons_head; p != NULL; p = p->next) {
+        int prank;
         if (p == ti) continue;
-        if (order_rank_of(p->wid) > idx) {
+        prank = order_rank_of(p->wid);
+        if (prank == INT_MAX) continue;
+        if (prank > idx) {
             before = p;
             break;
         }
