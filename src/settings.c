@@ -1654,10 +1654,19 @@ static int parse_rc_line(char *buf, int lnum, int reloading)
                 p_argv = match->default_argv;
             }
 
-            LOG_TRACE(("rc: param \"%s\", args [\"", match->rc_name));
-            for (int i = 0; i < p_argc - 1; i++)
-                LOG_TRACE(("\"%s\", ", p_argv[i]));
-            LOG_TRACE(("\"%s\"]\n", p_argv[p_argc - 1]));
+            {
+                char argbuf[512];
+                int apos = 0;
+                argbuf[0] = '\0';
+                for (int i = 0; i < p_argc; i++) {
+                    int an = snprintf(argbuf + apos, sizeof(argbuf) - apos,
+                        "%s\"%s\"", i > 0 ? ", " : "", p_argv[i]);
+                    if (an < 0 || (size_t) (apos + an) >= sizeof(argbuf)) break;
+                    apos += an;
+                }
+                LOG_TRACE(
+                    ("rc: param \"%s\", args [%s]\n", match->rc_name, argbuf));
+            }
 
             if (!match->parser(
                     p_argc, p_argv, match->struct_offset, False)) {
