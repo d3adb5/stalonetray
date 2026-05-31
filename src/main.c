@@ -12,6 +12,8 @@
 #include <X11/Xmd.h>
 #include <X11/Xutil.h>
 
+#include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +47,11 @@ static volatile sig_atomic_t settings_reload_requested = 0;
 /* Stashed at main() so SIGHUP reloads can re-apply the original cmdline. */
 static int reload_argc = 0;
 static char **reload_argv = NULL;
+/* Self-pipe whose read end is select()ed alongside the X connection. SIGHUP
+ * writes a byte to wr to break the main loop out of an idle wait so the
+ * reload runs without having to wait for the next X event. */
+static int signal_pipe_rd = -1;
+static int signal_pipe_wr = -1;
 #ifdef _ST_EXIT_GRACEFULLY
 static Display *async_dpy;
 #endif
@@ -69,9 +76,10 @@ void request_tray_status_on_signal(int)
 
 void request_settings_reload_on_signal(int)
 {
-    /* Do the actual work in the event loop; only async-signal-safe writes are
-     * allowed here. */
     settings_reload_requested = 1;
+    char b = 0;
+    ssize_t r = write(signal_pipe_wr, &b, 1);
+    (void) r;
 }
 
 #ifdef _ST_EXIT_GRACEFULLY
@@ -996,19 +1004,9 @@ int tray_main(int argc, char **argv)
     kde_icons_update();
 #endif
     find_unmanaged_chromium_icons();
-    /* Main event loop */
+    int x_fd = ConnectionNumber(tray_data.dpy);
     while ("my guitar gently wheeps") {
-        /* This is ugly and extra dependency. But who cares?
-         * Rationale: we want to block unless absolutely needed.
-         * This way we ensure that stalonetray does not show up
-         * in powertop (i.e. does not eat unnecessary power and
-         * CPU cycles)
-         * Drawback: handling of signals is very limited. XNextEvent()
-         * does not if signal occurs. This means that graceful
-         * exit on e.g. Ctrl-C cannot be implemented without hacks. */
-        while (XPending(tray_data.dpy)
-            || (tray_data.scrollbars_data.scrollbar_down == -1
-                && !order_startup_pending())) {
+        while (XPending(tray_data.dpy)) {
             XNextEvent(tray_data.dpy, &ev);
             xembed_handle_event(ev);
             scrollbars_handle_event(ev);
@@ -1076,7 +1074,21 @@ int tray_main(int argc, char **argv)
             perform_periodic_tasks(PT_MASK_ALL & (~PT_MASK_SB));
         }
         perform_periodic_tasks(PT_MASK_ALL);
-        my_usleep(500000L);
+        if (tray_data.terminated) goto bailout;
+
+        int active = (tray_data.scrollbars_data.scrollbar_down != -1
+            || order_startup_pending());
+        struct timeval tv = {0, 500000};
+        fd_set rset;
+        FD_ZERO(&rset);
+        FD_SET(x_fd, &rset);
+        FD_SET(signal_pipe_rd, &rset);
+        int maxfd = (x_fd > signal_pipe_rd ? x_fd : signal_pipe_rd) + 1;
+        int n = select(maxfd, &rset, NULL, NULL, active ? &tv : NULL);
+        if (n > 0 && FD_ISSET(signal_pipe_rd, &rset)) {
+            char drain[16];
+            while (read(signal_pipe_rd, drain, sizeof(drain)) > 0) { }
+        }
     }
 bailout:
     LOG_TRACE(("Clean exit\n"));
@@ -1166,6 +1178,17 @@ int main(int argc, char **argv)
     reload_argv = argv;
     /* Register cleanup and signal handlers */
     atexit(cleanup);
+    {
+        int fds[2];
+        if (pipe(fds) < 0)
+            DIE(("could not create signal pipe: %s\n", strerror(errno)));
+        fcntl(fds[0], F_SETFL, O_NONBLOCK);
+        fcntl(fds[1], F_SETFL, O_NONBLOCK);
+        fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+        fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+        signal_pipe_rd = fds[0];
+        signal_pipe_wr = fds[1];
+    }
     signal(SIGUSR1, &request_tray_status_on_signal);
     signal(SIGHUP, &request_settings_reload_on_signal);
 #ifdef _ST_EXIT_GRACEFULLY
