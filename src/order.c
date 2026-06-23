@@ -199,8 +199,8 @@ static int order_resolve_path(void)
     /* Explicit file: derive its directory for mkdir. */
     char *slash;
     if (strlen(settings.icon_order_file) >= sizeof(order.path)) return 0;
-    strcpy(order.path, settings.icon_order_file);
-    strcpy(order.dir, settings.icon_order_file);
+    snprintf(order.path, sizeof(order.path), "%s", settings.icon_order_file);
+    snprintf(order.dir, sizeof(order.dir), "%s", settings.icon_order_file);
     slash = strrchr(order.dir, '/');
     if (slash != NULL)
       *slash = '\0';
